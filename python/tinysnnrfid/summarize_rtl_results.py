@@ -94,7 +94,7 @@ def collect_rtl_summary(input_dir: str | Path = "results/rtl") -> dict[str, Any]
     }
     available_simulations = [values for values in simulations.values() if values["found"]]
     lowest = min(cell_counts, key=lambda name: (cell_counts[name], name)) if cell_counts else None
-    return {
+    summary: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "simulations": simulations,
         "synthesis": synthesis,
@@ -109,6 +109,15 @@ def collect_rtl_summary(input_dir: str | Path = "results/rtl") -> dict[str, Any]
             "Cell counts are synthesis proxies; no measured silicon power is reported."
         ),
     }
+    activity_path = directory / "rtl_activity_summary.json"
+    if activity_path.is_file():
+        try:
+            activity = json.loads(activity_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            activity = {"status": "unparseable", "error": str(exc)}
+        if isinstance(activity, dict):
+            summary["activity"] = activity
+    return summary
 
 
 def render_rtl_report(summary: dict[str, Any], input_dir: str | Path = "results/rtl") -> str:
@@ -139,8 +148,34 @@ def render_rtl_report(summary: dict[str, Any], input_dir: str | Path = "results/
         lines.append("- No parseable synthesis cell counts are available.")
     if not any(values["found"] for values in summary["simulations"].values()):
         lines.append("- No simulation logs were found; run the optional RTL simulation flow to add evidence.")
+    if "activity" in summary:
+        _append_activity_section(lines, summary["activity"])
     lines.extend(["", "## Notes and Limitations", "", summary["note"], ""])
     return "\n".join(lines)
+
+
+def _append_activity_section(lines: list[str], activity: dict[str, Any]) -> None:
+    lines.extend(["", "## Toggle Activity Summary", ""])
+    baselines = activity.get("baselines", {})
+    if not isinstance(baselines, dict):
+        lines.append("- RTL activity summary was present but not parseable.")
+        return
+    lines.extend(["| Baseline | Status | Total Toggles |", "|---|---|---:|"])
+    toggle_counts: dict[str, int] = {}
+    for name in BASELINES:
+        values = baselines.get(name, {})
+        if not isinstance(values, dict):
+            values = {}
+        total = values.get("total_toggles", "-")
+        if isinstance(total, int):
+            toggle_counts[name] = total
+        lines.append(f"| {name} | {values.get('status', 'missing')} | {total} |")
+    lowest = activity.get("recommendation_context", {}).get("lowest_toggle_baseline")
+    if lowest:
+        lines.append(f"\n- Lowest available toggle-count baseline: `{lowest}`.")
+    elif not toggle_counts:
+        lines.append("\n- No parseable VCD toggle counts are available.")
+    lines.append("- Toggle counts are simulation activity proxies and are not measured silicon power or energy.")
 
 
 def summarize_rtl_results(

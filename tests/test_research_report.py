@@ -121,6 +121,14 @@ def test_research_report_loads_rtl_summary_when_present(tmp_path) -> None:
         {
             "simulations": {"threshold": {"found": True, "status": "pass", "passed": 3, "failed": 0}},
             "synthesis": {"threshold": {"found": True, "status": "available", "cell_count": 12}},
+            "activity": {
+                "baselines": {
+                    "threshold": {"found": True, "status": "available", "total_toggles": 21},
+                    "fsm": {"found": True, "status": "available", "total_toggles": 10},
+                    "lut_like": {"found": False, "status": "missing"},
+                },
+                "recommendation_context": {"lowest_toggle_baseline": "fsm"},
+            },
             "recommendation_context": {"lowest_cell_count_baseline": "threshold"},
             "note": "not silicon signoff",
         },
@@ -128,8 +136,11 @@ def test_research_report_loads_rtl_summary_when_present(tmp_path) -> None:
     summary = build_research_report(tmp_path / "output", input_paths=paths)
     assert summary["inputs"]["rtl_baselines"]["found"] is True
     assert summary["evidence"]["rtl_baselines"]["synthesis"]["threshold"]["cell_count"] == 12
+    assert summary["evidence"]["rtl_baselines"]["activity"]["baselines"]["threshold"]["total_toggles"] == 21
     report = (tmp_path / "output" / "research_decision_report.md").read_text(encoding="utf-8")
     assert "## RTL Baseline Evidence" in report
+    assert "### RTL Activity Context" in report
+    assert "not measured silicon power" in report
     assert "not silicon signoff" in report
 
 
@@ -213,6 +224,14 @@ def rtl_payload() -> dict:
             "threshold": {"found": True, "status": "available", "cell_count": 12},
             "fsm": {"found": False, "status": "missing"},
             "lut_like": {"found": False, "status": "missing"},
+        },
+        "activity": {
+            "baselines": {
+                "threshold": {"found": True, "status": "available", "total_toggles": 21},
+                "fsm": {"found": True, "status": "available", "total_toggles": 10},
+                "lut_like": {"found": False, "status": "missing"},
+            },
+            "recommendation_context": {"lowest_toggle_baseline": "fsm"},
         },
         "recommendation_context": {"lowest_cell_count_baseline": "threshold"},
         "note": "Open-source RTL results are not silicon signoff.",

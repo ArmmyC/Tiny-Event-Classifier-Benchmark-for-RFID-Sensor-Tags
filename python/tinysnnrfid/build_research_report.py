@@ -69,6 +69,7 @@ def extract_rtl_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "kind": "rtl_baselines",
         "simulations": payload.get("simulations", {}),
         "synthesis": payload.get("synthesis", {}),
+        "activity": payload.get("activity", {}),
         "recommendation_context": payload.get("recommendation_context", {}),
         "note": payload.get("note"),
     }
@@ -396,6 +397,21 @@ def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) 
     lowest = item.get("recommendation_context", {}).get("lowest_cell_count_baseline")
     if lowest:
         lines.append(f"\n- Lowest available cell-count baseline: `{lowest}`.")
+    activity = item.get("activity", {})
+    activity_baselines = activity.get("baselines", {}) if isinstance(activity, dict) else {}
+    if activity_baselines:
+        lines.extend(["", "### RTL Activity Context", "", "| Baseline | Toggle Status | Total Toggles |", "|---|---|---:|"])
+        for name in ("threshold", "fsm", "lut_like"):
+            values = activity_baselines.get(name, {})
+            if not isinstance(values, dict):
+                values = {}
+            lines.append(f"| {name} | {values.get('status', 'missing')} | {values.get('total_toggles', '-')} |")
+        lowest_toggle = activity.get("recommendation_context", {}).get("lowest_toggle_baseline")
+        if lowest_toggle:
+            lines.append(f"\n- Lowest available toggle-count baseline: `{lowest_toggle}`.")
+        else:
+            lines.append("")
+        lines.append("- Toggle counts are simulation activity proxies and are not measured silicon power or energy.")
     lines.extend([
         "",
         "Open-source RTL simulation and synthesis results are not silicon signoff. "

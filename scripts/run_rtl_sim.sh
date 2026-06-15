@@ -18,7 +18,7 @@ run_detector() {
     rtl/baselines/fsm_detector.sv \
     rtl/baselines/lut_like_detector.sv \
     rtl/tb/tb_baseline_detector.sv
-  vvp "${executable}" | tee "results/rtl/sim_${name}.log"
+  vvp "${executable}" "+VCD_FILE=results/rtl/vcd_${name}.vcd" | tee "results/rtl/sim_${name}.log"
 }
 
 run_detector threshold DETECTOR_THRESHOLD

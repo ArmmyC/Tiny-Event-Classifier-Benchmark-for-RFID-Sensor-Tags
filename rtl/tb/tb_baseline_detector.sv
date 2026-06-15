@@ -12,6 +12,7 @@ module tb_baseline_detector;
     logic prediction;
     integer pass_count = 0;
     integer fail_count = 0;
+    string vcd_file;
 
 `ifdef DETECTOR_FSM
     fsm_detector #(
@@ -31,6 +32,13 @@ module tb_baseline_detector;
 `endif
 
     always #5 clk = ~clk;
+
+    initial begin
+        if ($value$plusargs("VCD_FILE=%s", vcd_file)) begin
+            $dumpfile(vcd_file);
+            $dumpvars(0, tb_baseline_detector);
+        end
+    end
 
     function automatic logic expected_prediction(input integer sample_index);
 `ifdef DETECTOR_FSM

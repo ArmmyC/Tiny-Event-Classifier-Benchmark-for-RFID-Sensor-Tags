@@ -45,3 +45,26 @@ def test_summary_selects_lowest_cell_count(tmp_path) -> None:
         (tmp_path / f"synth_{name}.json").write_text(json.dumps({"num_cells": count}), encoding="utf-8")
     summary = summarize_rtl_results(tmp_path)
     assert summary["recommendation_context"]["lowest_cell_count_baseline"] == "fsm"
+
+
+def test_rtl_report_includes_activity_summary_when_present(tmp_path) -> None:
+    (tmp_path / "rtl_activity_summary.json").write_text(
+        json.dumps(
+            {
+                "baselines": {
+                    "threshold": {"found": True, "status": "available", "total_toggles": 12},
+                    "fsm": {"found": True, "status": "available", "total_toggles": 7},
+                    "lut_like": {"found": False, "status": "missing"},
+                },
+                "recommendation_context": {"lowest_toggle_baseline": "fsm"},
+                "note": "Toggle counts are simulation activity proxies and are not measured silicon power.",
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = summarize_rtl_results(tmp_path)
+    assert summary["activity"]["baselines"]["fsm"]["total_toggles"] == 7
+    report = (tmp_path / "rtl_report.md").read_text(encoding="utf-8")
+    assert "## Toggle Activity Summary" in report
+    assert "Lowest available toggle-count baseline: `fsm`" in report
+    assert "not measured silicon power" in report

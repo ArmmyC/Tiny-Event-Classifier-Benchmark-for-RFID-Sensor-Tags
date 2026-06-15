@@ -30,9 +30,15 @@ def test_rtl_sources_and_modules_exist() -> None:
 
 def test_makefile_and_scripts_cover_rtl_flow() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    for target in ("rtl-vectors:", "rtl-sim:", "rtl-synth:"):
+    for target in ("rtl-vectors:", "rtl-sim:", "rtl-synth:", "rtl-activity:", "rtl-report:"):
         assert target in makefile
     assert "results/rtl" in makefile
+    tb = (ROOT / "rtl" / "tb" / "tb_baseline_detector.sv").read_text(encoding="utf-8")
+    assert "VCD_FILE=%s" in tb
+    assert "$dumpvars" in tb
+    sim_script = (ROOT / "scripts" / "run_rtl_sim.sh").read_text(encoding="utf-8")
+    for name in ("threshold", "fsm", "lut_like"):
+        assert f"vcd_${{name}}.vcd" in sim_script
     for filename in ("run_rtl_sim.sh", "run_rtl_synth.sh"):
         script = ROOT / "scripts" / filename
         assert script.is_file()

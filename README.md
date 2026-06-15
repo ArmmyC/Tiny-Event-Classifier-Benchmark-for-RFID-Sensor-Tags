@@ -179,6 +179,8 @@ synthesized.
 make rtl-vectors
 make rtl-sim
 make rtl-synth
+make rtl-activity
+make rtl-report
 ```
 
 `rtl-vectors` generates `results/rtl/vectors.svh` from the temporal-hard config
@@ -188,6 +190,21 @@ Missing tools print a clear skip message and return success by default; set
 `STRICT=1` to make either script fail instead. All outputs under `results/rtl/`
 are generated and ignored by Git. Synthesis statistics are local open-source
 tool results, not silicon signoff or hardware power measurements.
+
+`rtl-sim` passes an optional `+VCD_FILE=...` plusarg to the shared RTL
+testbench and writes one VCD trace per baseline when simulation tools are
+available: `vcd_threshold.vcd`, `vcd_fsm.vcd`, and `vcd_lut_like.vcd`.
+`rtl-activity` parses any available VCD files without extra dependencies and
+writes `results/rtl/rtl_activity_summary.json` plus
+`results/rtl/rtl_activity_report.md`. Missing VCDs are reported as missing, not
+as failures. Toggle counts are simulation activity proxies only; they are not
+measured silicon power or energy.
+
+`rtl-report` writes `results/rtl/rtl_summary.json` and
+`results/rtl/rtl_report.md`, including synthesis and simulation evidence and
+the VCD toggle summary when `rtl_activity_summary.json` is present. The
+consolidated `make research-report` also includes this RTL activity context
+when available.
 
 ## Initial research stance
 
