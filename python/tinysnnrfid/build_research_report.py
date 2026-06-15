@@ -14,7 +14,10 @@ EXPECTED_INPUTS = {
     "legacy_snn_search": Path("results/snn_search/search_results.json"),
     "temporal_sweep": Path("results/temporal_sweeps/sweep_results.json"),
     "temporal_snn_search": Path("results/temporal_snn_search/search_results.json"),
+    "rtl_baselines": Path("results/rtl/rtl_summary.json"),
 }
+
+OPTIONAL_INPUTS = {"rtl_baselines"}
 
 RECOMMENDATIONS = {
     "continue_snn_optimization",
@@ -56,7 +59,19 @@ def extract_evidence(name: str, payload: dict[str, Any]) -> dict[str, Any]:
         return extract_sweep_evidence(payload)
     if name in {"legacy_snn_search", "temporal_snn_search"}:
         return extract_search_evidence(payload)
+    if name == "rtl_baselines":
+        return extract_rtl_evidence(payload)
     return {"kind": "unknown"}
+
+
+def extract_rtl_evidence(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "rtl_baselines",
+        "simulations": payload.get("simulations", {}),
+        "synthesis": payload.get("synthesis", {}),
+        "recommendation_context": payload.get("recommendation_context", {}),
+        "note": payload.get("note"),
+    }
 
 
 def extract_benchmark_evidence(payload: dict[str, Any]) -> dict[str, Any]:
@@ -244,8 +259,13 @@ def build_research_report(
 ) -> dict[str, Any]:
     """Read existing outputs and write consolidated JSON and Markdown reports."""
     inputs, evidence, missing = load_research_inputs(input_paths)
-    if strict and missing:
-        raise ValueError(f"Missing required research input(s): {', '.join(missing)}")
+    required_missing = [
+        values["path"]
+        for name, values in inputs.items()
+        if name not in OPTIONAL_INPUTS and not values["found"]
+    ]
+    if strict and required_missing:
+        raise ValueError(f"Missing required research input(s): {', '.join(required_missing)}")
     summary = build_summary(inputs, evidence, missing)
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
@@ -288,6 +308,7 @@ def render_research_report(summary: dict[str, Any]) -> str:
     _append_evidence_section(lines, "Legacy SNN Search Evidence", evidence.get("legacy_snn_search"))
     _append_evidence_section(lines, "Temporal-Hard Sweep Evidence", evidence.get("temporal_sweep"))
     _append_evidence_section(lines, "Temporal-Hard SNN Search Evidence", evidence.get("temporal_snn_search"))
+    _append_rtl_evidence_section(lines, evidence.get("rtl_baselines"))
     lines.extend(["## Scenario-Level Findings", ""])
     scenario_rows = _scenario_findings(evidence)
     if scenario_rows:
@@ -318,7 +339,8 @@ def render_research_report(summary: dict[str, Any]) -> str:
             "",
             "This report only aggregates existing generated outputs; it does not rerun experiments. "
             "Activity metrics are software operation proxies, not hardware power or energy. "
-            "RTL simulation and synthesis are still required before making hardware conclusions.",
+            "RTL simulation and synthesis are still required before making hardware conclusions. "
+            "Open-source RTL simulation and synthesis results are not silicon signoff and do not report measured silicon power.",
             "",
         ]
     )
@@ -357,6 +379,29 @@ def _scenario_findings(evidence: dict[str, dict[str, Any]]) -> list[str]:
             f1 = float(values.get("mean_f1", values.get("f1", 0.0)))
             rows.append(f"| {source} | {scenario} | {winner} | {f1:.4f} |")
     return rows
+
+
+def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) -> None:
+    lines.extend(["## RTL Baseline Evidence", ""])
+    if not item:
+        lines.extend(["- RTL summary not available. Run `make rtl-report` to summarize optional local tool outputs.", ""])
+        return
+    simulations = item.get("simulations", {})
+    synthesis = item.get("synthesis", {})
+    lines.extend(["| Baseline | Simulation | Cell Count Proxy |", "|---|---|---:|"])
+    for name in ("threshold", "fsm", "lut_like"):
+        sim_status = simulations.get(name, {}).get("status", "missing")
+        cell_count = synthesis.get(name, {}).get("cell_count", "-")
+        lines.append(f"| {name} | {sim_status} | {cell_count} |")
+    lowest = item.get("recommendation_context", {}).get("lowest_cell_count_baseline")
+    if lowest:
+        lines.append(f"\n- Lowest available cell-count baseline: `{lowest}`.")
+    lines.extend([
+        "",
+        "Open-source RTL simulation and synthesis results are not silicon signoff. "
+        "Cell counts are synthesis proxies, and no measured silicon power is claimed.",
+        "",
+    ])
 
 
 def build_parser() -> argparse.ArgumentParser:

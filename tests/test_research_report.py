@@ -90,6 +90,7 @@ def test_report_extracts_synthetic_inputs_and_writes_sections(tmp_path) -> None:
     write_json(paths["legacy_snn_search"], search_payload("prioritize_fsm_or_lut_rtl_baseline"))
     write_json(paths["temporal_sweep"], sweep_payload("add_harder_temporal_scenarios", "lut_like"))
     write_json(paths["temporal_snn_search"], search_payload("prioritize_fsm_or_lut_rtl_baseline"))
+    write_json(paths["rtl_baselines"], rtl_payload())
     output_dir = tmp_path / "output"
     summary = build_research_report(output_dir, strict=True, input_paths=paths)
     assert summary["recommendation"] == "prioritize_fsm_or_lut_rtl_baseline"
@@ -103,11 +104,31 @@ def test_report_extracts_synthetic_inputs_and_writes_sections(tmp_path) -> None:
         "## Legacy SNN Search Evidence",
         "## Temporal-Hard Sweep Evidence",
         "## Temporal-Hard SNN Search Evidence",
+        "## RTL Baseline Evidence",
         "## Scenario-Level Findings",
         "## Decision Matrix",
         "## Notes and Limitations",
     ):
         assert section in report
+
+
+def test_research_report_loads_rtl_summary_when_present(tmp_path) -> None:
+    paths = input_paths(tmp_path)
+    write_json(
+        paths["rtl_baselines"],
+        {
+            "simulations": {"threshold": {"found": True, "status": "pass", "passed": 3, "failed": 0}},
+            "synthesis": {"threshold": {"found": True, "status": "available", "cell_count": 12}},
+            "recommendation_context": {"lowest_cell_count_baseline": "threshold"},
+            "note": "not silicon signoff",
+        },
+    )
+    summary = build_research_report(tmp_path / "output", input_paths=paths)
+    assert summary["inputs"]["rtl_baselines"]["found"] is True
+    assert summary["evidence"]["rtl_baselines"]["synthesis"]["threshold"]["cell_count"] == 12
+    report = (tmp_path / "output" / "research_decision_report.md").read_text(encoding="utf-8")
+    assert "## RTL Baseline Evidence" in report
+    assert "not silicon signoff" in report
 
 
 def benchmark_payload() -> dict:
@@ -176,4 +197,21 @@ def search_payload(recommendation: str) -> dict:
                 }
             }
         },
+    }
+
+
+def rtl_payload() -> dict:
+    return {
+        "simulations": {
+            "threshold": {"found": True, "status": "pass", "passed": 3, "failed": 0},
+            "fsm": {"found": False, "status": "missing"},
+            "lut_like": {"found": False, "status": "missing"},
+        },
+        "synthesis": {
+            "threshold": {"found": True, "status": "available", "cell_count": 12},
+            "fsm": {"found": False, "status": "missing"},
+            "lut_like": {"found": False, "status": "missing"},
+        },
+        "recommendation_context": {"lowest_cell_count_baseline": "threshold"},
+        "note": "Open-source RTL results are not silicon signoff.",
     }
