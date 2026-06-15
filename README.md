@@ -168,16 +168,26 @@ sweep uses `configs/sweep_temporal_hard.json` and writes under
 the existing `benchmark`, `sweep`, and `snn-search` commands retain the legacy
 default dataset behavior.
 
-## Optional RTL flow
+## RTL Baseline Flow
 
-The RTL files are starter implementations. They are meant to be refined after the Python benchmark is stable.
+The hardware flow currently covers only the threshold, ordered-pattern FSM,
+and LUT-like baselines under `rtl/baselines/`. `tiny_snn_v2` RTL is
+intentionally deferred until these simple references have been simulated and
+synthesized.
 
 ```bash
-bash scripts/run_iverilog.sh
-bash scripts/run_yosys.sh threshold_detector
+make rtl-vectors
+make rtl-sim
+make rtl-synth
 ```
 
-Tool availability depends on your machine.
+`rtl-vectors` generates `results/rtl/vectors.svh` from the temporal-hard config
+and includes Python-golden predictions for all three classifiers. Simulation
+uses Icarus Verilog and synthesis uses Yosys when those tools are installed.
+Missing tools print a clear skip message and return success by default; set
+`STRICT=1` to make either script fail instead. All outputs under `results/rtl/`
+are generated and ignored by Git. Synthesis statistics are local open-source
+tool results, not silicon signoff or hardware power measurements.
 
 ## Initial research stance
 
