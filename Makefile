@@ -6,8 +6,10 @@ data:
 eval:
 	python python/evaluate_python.py --config configs/default.json
 
-benchmark: data eval
-	@echo "Benchmark report: results/benchmark_report.md"
+benchmark:
+	python python/generate_dataset.py --config configs/default.json
+	python python/evaluate_python.py --config configs/default.json
+	python -c "print('Benchmark report: results/benchmark_report.md')"
 
 sweep:
 	python python/run_sweep.py --config configs/sweep_default.json
