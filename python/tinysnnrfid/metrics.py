@@ -3,28 +3,29 @@ from __future__ import annotations
 import numpy as np
 
 
-def binary_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float | int]:
-    y_true = y_true.astype(np.uint8)
-    y_pred = y_pred.astype(np.uint8)
-    tp = int(np.sum((y_true == 1) & (y_pred == 1)))
-    tn = int(np.sum((y_true == 0) & (y_pred == 0)))
-    fp = int(np.sum((y_true == 0) & (y_pred == 1)))
-    fn = int(np.sum((y_true == 1) & (y_pred == 0)))
-
-    total = max(1, len(y_true))
-    precision = tp / max(1, tp + fp)
-    recall = tp / max(1, tp + fn)
-    f1 = 2 * precision * recall / max(1e-12, precision + recall)
+def binary_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, object]:
+    """Calculate binary classification metrics with zero-safe divisions."""
+    if y_true.ndim != 1 or y_pred.ndim != 1 or y_true.shape != y_pred.shape:
+        raise ValueError(f"Metric inputs must have matching 1D shapes: {y_true.shape} and {y_pred.shape}")
+    if not np.isin(y_true, [0, 1]).all() or not np.isin(y_pred, [0, 1]).all():
+        raise ValueError("Metric inputs must contain only binary values")
+    truth = y_true.astype(np.uint8)
+    prediction = y_pred.astype(np.uint8)
+    tp = int(np.sum((truth == 1) & (prediction == 1)))
+    tn = int(np.sum((truth == 0) & (prediction == 0)))
+    fp = int(np.sum((truth == 0) & (prediction == 1)))
+    fn = int(np.sum((truth == 1) & (prediction == 0)))
+    total = int(truth.size)
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
     return {
-        "total": int(total),
+        "accuracy": (tp + tn) / total if total else 0.0,
+        "precision": precision,
+        "recall": recall,
+        "f1": 2 * precision * recall / (precision + recall) if precision + recall else 0.0,
         "tp": tp,
         "tn": tn,
         "fp": fp,
         "fn": fn,
-        "accuracy": (tp + tn) / total,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "false_positive_rate": fp / max(1, fp + tn),
-        "false_negative_rate": fn / max(1, fn + tp),
+        "confusion_matrix": [[tn, fp], [fn, tp]],
     }

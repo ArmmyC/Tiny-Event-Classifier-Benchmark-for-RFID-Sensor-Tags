@@ -1,0 +1,27 @@
+{
+  "dataset": {
+    "num_samples": 1000,
+    "sequence_length": 32,
+    "input_width": 4,
+    "positive_ratio": 0.5,
+    "valid_pattern": [0, 1, 2],
+    "noise_probability": 0.03,
+    "jitter_probability": 0.2,
+    "dropout_probability": 0.1,
+    "max_jitter": 1,
+    "max_gap": 5,
+    "train_test_split": 0.8,
+    "random_seed": 1234
+  },
+  "classifiers": {
+    "enabled": ["threshold", "fsm", "lut_like", "tiny_snn"],
+    "threshold": {"min_active_cycles": 3, "min_total_spikes": 3},
+    "fsm": {"max_gap": 6},
+    "lut_like": {"max_total_spikes": 10},
+    "tiny_snn": {"threshold": 2, "leak": 1, "membrane_max": 7, "max_gap": 6}
+  },
+  "paths": {
+    "data_dir": "data/generated",
+    "results_dir": "results"
+  }
+}

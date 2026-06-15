@@ -54,14 +54,46 @@ pip install -r requirements.txt
 
 make data
 make eval
+make benchmark
 ```
 
 Or run directly:
 
 ```bash
-python python/generate_dataset.py --num-sequences 1000 --seq-len 32 --noise-prob 0.03 --out-dir data/generated
-python python/evaluate_python.py --dataset data/generated/noisy_event_dataset.npz --out results/accuracy/python_metrics.json
+PYTHONPATH=python python -m tinysnnrfid.generate_dataset --config configs/default.json
+PYTHONPATH=python python -m tinysnnrfid.run_benchmark --config configs/default.json
 ```
+
+On PowerShell, set the module path with `$env:PYTHONPATH = "python"` before the two
+`python -m` commands. The compatibility entry points `python/generate_dataset.py`
+and `python/evaluate_python.py` accept the same config-oriented arguments.
+
+The default JSON config controls dataset size, sequence dimensions, pattern,
+noise, jitter, dropout, seed, enabled classifiers, and output paths. JSON is the
+dependency-free default; YAML is also accepted when PyYAML is installed.
+
+## Benchmark outputs
+
+Dataset generation writes:
+
+- `data/generated/inputs.npy`: `uint8` inputs shaped `[samples, cycles, channels]`
+- `data/generated/labels.npy`: binary labels shaped `[samples]`
+- `data/generated/metadata.json`: effective config, timestamp, seed, shape, and label counts
+- `data/generated/test_vectors.txt`: one RTL-friendly sample per line
+- `data/generated/noisy_event_dataset.npz` and `vectors.hex`: compatibility artifacts for the existing flow
+
+Benchmark evaluation writes `results/benchmark_results.json` and
+`results/benchmark_report.md`. Activity figures are software operation proxies,
+not measurements of hardware power or energy.
+
+The text-vector format is:
+
+```text
+# sample_index label sequence_length input_width
+0 1 32 4 0000 0001 0010 0100 ...
+```
+
+Run the test suite with `make test` or `PYTHONPATH=python python -m pytest`.
 
 ## Optional RTL flow
 

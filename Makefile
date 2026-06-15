@@ -1,10 +1,16 @@
-.PHONY: data eval clean
+.PHONY: data eval benchmark test clean
 
 data:
-	python python/generate_dataset.py --num-sequences 1000 --seq-len 32 --noise-prob 0.03 --out-dir data/generated
+	python python/generate_dataset.py --config configs/default.json
 
 eval:
-	python python/evaluate_python.py --dataset data/generated/noisy_event_dataset.npz --out results/accuracy/python_metrics.json
+	python python/evaluate_python.py --config configs/default.json
+
+benchmark: data eval
+	@echo "Benchmark report: results/benchmark_report.md"
+
+test:
+	python -m pytest
 
 clean:
-	rm -rf data/generated/*.npz data/generated/*.txt results/accuracy/*.json results/vcd/*.vcd sim.out
+	rm -f data/generated/*.npy data/generated/*.npz data/generated/*.txt data/generated/*.hex data/generated/metadata.json results/benchmark_results.json results/benchmark_report.md results/accuracy/*.json results/vcd/*.vcd sim.out
