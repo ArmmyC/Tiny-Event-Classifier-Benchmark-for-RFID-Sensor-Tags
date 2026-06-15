@@ -62,6 +62,7 @@ make data
 make eval
 make benchmark
 make sweep
+make snn-search
 ```
 
 Or run directly:
@@ -70,6 +71,7 @@ Or run directly:
 PYTHONPATH=python python -m tinysnnrfid.generate_dataset --config configs/default.json
 PYTHONPATH=python python -m tinysnnrfid.run_benchmark --config configs/default.json
 PYTHONPATH=python python -m tinysnnrfid.run_sweep --config configs/sweep_default.json
+PYTHONPATH=python python -m tinysnnrfid.run_snn_search --config configs/snn_search_default.json
 ```
 
 On PowerShell, set the module path with `$env:PYTHONPATH = "python"` before the two
@@ -118,6 +120,30 @@ noise, jitter, dropout, dense-noise threshold, and seed values. The sweep writes
 classifier by scenario, decision-summary guidance, and `tiny_snn_v2` versus
 `fsm` comparisons with F1 tolerance and software activity proxy context. Sweep
 outputs are generated artifacts and are ignored by git.
+
+## Tiny SNN v2 Parameter Search
+
+`configs/snn_search_default.json` runs a bounded deterministic search over
+small, RTL-plausible `tiny_snn_v2` settings. It evaluates predefined fixed
+integer weight variants (`current_default`, `ternary_event_order`,
+`ternary_noise_guard`, `low_activity_sparse`, and `balanced_small_int`) across
+thresholds, leak values, reset behavior, seeds, and optional dataset
+noise/jitter/dropout values. This is not training; it only evaluates
+hand-defined low-precision configurations through the existing benchmark
+pipeline.
+
+Run:
+
+```bash
+make snn-search
+```
+
+The command writes `results/snn_search/search_results.json`,
+`results/snn_search/search_summary.csv`, and
+`results/snn_search/search_report.md`. Competitive cases use the same strict
+logic as sweep reports: an SNN candidate must either beat FSM F1 or have lower
+software activity while staying within the configured F1 tolerance. Activity
+figures remain software operation proxies, not hardware power or energy.
 
 ## Optional RTL flow
 
