@@ -9,8 +9,10 @@ from tinysnnrfid.run_snn_search import (
     WEIGHT_VARIANTS,
     build_search_decision,
     expand_candidate_grid,
+    expand_full_candidate_grid,
     load_search_config,
     run_snn_search,
+    select_candidates,
 )
 
 
@@ -71,6 +73,7 @@ def tiny_search_config(tmp_path) -> dict:
             "candidate_classifier": "tiny_snn_v2",
             "f1_tolerance": 0.03,
         },
+        "selection": {"strategy": "balanced_round_robin"},
         "limits": {"max_candidates": 3},
     }
 
@@ -93,12 +96,31 @@ def test_load_search_config_rejects_invalid_weight_variant(tmp_path) -> None:
         load_search_config(path)
 
 
-def test_expand_candidate_grid_is_deterministic_and_limited(tmp_path) -> None:
+def test_load_search_config_rejects_invalid_selection_strategy(tmp_path) -> None:
     config = tiny_search_config(tmp_path)
+    config["selection"] = {"strategy": "random_walk"}
+    path = tmp_path / "bad_selection.json"
+    write_json(path, config)
+    with pytest.raises(ValueError, match="Unsupported selection strategy"):
+        load_search_config(path)
+
+
+def test_full_grid_count_exceeds_selected_count_for_limited_config(tmp_path) -> None:
+    config = tiny_search_config(tmp_path)
+    full = expand_full_candidate_grid(config)
+    selected = expand_candidate_grid(config)
+    assert len(full) == 4
+    assert len(selected) == 3
+    assert len(full) > len(selected)
+
+
+def test_expand_candidate_grid_is_deterministic_and_assigns_ids_after_selection(tmp_path) -> None:
+    config = tiny_search_config(tmp_path)
+    full = expand_full_candidate_grid(config)
+    assert all("candidate_id" not in candidate for candidate in full)
     first = expand_candidate_grid(config)
     second = expand_candidate_grid(config)
     assert first == second
-    assert len(first) == 3
     assert [candidate["candidate_id"] for candidate in first] == [
         "candidate_0000",
         "candidate_0001",
@@ -108,6 +130,49 @@ def test_expand_candidate_grid_is_deterministic_and_limited(tmp_path) -> None:
         "ternary_event_order",
         "balanced_small_int",
     }
+
+
+def test_prefix_strategy_preserves_first_n_behavior(tmp_path) -> None:
+    config = balanced_selection_config(tmp_path)
+    config["selection"] = {"strategy": "prefix"}
+    config["limits"] = {"max_candidates": 4}
+    full = expand_full_candidate_grid(config)
+    selected, metadata = select_candidates(full, config)
+    assert [
+        (candidate["weight_variant"], candidate["dataset_parameters"], candidate["seed"])
+        for candidate in selected
+    ] == [
+        (candidate["weight_variant"], candidate["dataset_parameters"], candidate["seed"])
+        for candidate in full[:4]
+    ]
+    assert [candidate["candidate_id"] for candidate in selected] == [
+        "candidate_0000",
+        "candidate_0001",
+        "candidate_0002",
+        "candidate_0003",
+    ]
+    assert metadata["strategy"] == "prefix"
+
+
+def test_balanced_round_robin_covers_variants_and_dataset_conditions(tmp_path) -> None:
+    config = balanced_selection_config(tmp_path)
+    full = expand_full_candidate_grid(config)
+    selected, metadata = select_candidates(full, config)
+    assert len(full) > len(selected)
+    assert {candidate["weight_variant"] for candidate in selected} == set(config["weight_variants"])
+    dataset_conditions = {
+        (
+            candidate["dataset_parameters"]["dataset.noise_probability"],
+            candidate["dataset_parameters"]["dataset.jitter_probability"],
+            candidate["dataset_parameters"]["dataset.dropout_probability"],
+        )
+        for candidate in selected
+    }
+    assert len(dataset_conditions) > 1
+    assert metadata["full_grid_candidate_count"] == len(full)
+    assert metadata["evaluated_candidate_count"] == len(selected)
+    assert metadata["skipped_candidate_count"] == len(full) - len(selected)
+    assert set(metadata["coverage"]) == {"weight_variants", "dataset_conditions", "seeds"}
 
 
 def test_weight_variants_are_integer_and_include_required_precision() -> None:
@@ -138,6 +203,10 @@ def test_run_snn_search_writes_outputs_and_schema(tmp_path) -> None:
     assert (output_dir / "search_summary.csv").is_file()
     assert (output_dir / "search_report.md").is_file()
     assert results["search"]["candidate_count"] == 3
+    assert results["selection"]["strategy"] == "balanced_round_robin"
+    assert results["selection"]["full_grid_candidate_count"] == 4
+    assert results["selection"]["evaluated_candidate_count"] == 3
+    assert results["selection"]["skipped_candidate_count"] == 1
     assert len(results["runs"]) == 3
     assert "threshold" in results["runs"][0]["classifiers"]
     assert "fsm" in results["runs"][0]["classifiers"]
@@ -158,6 +227,7 @@ def test_run_snn_search_writes_outputs_and_schema(tmp_path) -> None:
     for section in (
         "# Tiny SNN v2 Parameter Search Report",
         "## Search Setup",
+        "## Candidate Selection Coverage",
         "## Top Candidates By F1",
         "## Lower-Activity Competitive Candidates",
         "## Best Candidate By Scenario",
@@ -201,3 +271,29 @@ def _decision_run(reason: str, f1_delta: float) -> dict:
             "competitive_reason": reason,
         },
     }
+
+
+def balanced_selection_config(tmp_path) -> dict:
+    config = tiny_search_config(tmp_path)
+    config["seeds"] = [7, 8]
+    config["dataset_parameters"] = {
+        "dataset.noise_probability": [0.0, 0.1],
+        "dataset.jitter_probability": [0.0, 0.2],
+        "dataset.dropout_probability": [0.0],
+    }
+    config["weight_variants"] = [
+        "current_default",
+        "ternary_event_order",
+        "ternary_noise_guard",
+        "low_activity_sparse",
+        "balanced_small_int",
+    ]
+    config["snn_parameters"] = {
+        "classifiers.tiny_snn_v2.hidden_threshold": [3, 4],
+        "classifiers.tiny_snn_v2.output_threshold": [2],
+        "classifiers.tiny_snn_v2.leak": [0],
+        "classifiers.tiny_snn_v2.reset_on_spike": [True],
+    }
+    config["selection"] = {"strategy": "balanced_round_robin"}
+    config["limits"] = {"max_candidates": 12}
+    return config

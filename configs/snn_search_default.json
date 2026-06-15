@@ -30,6 +30,9 @@
     "candidate_classifier": "tiny_snn_v2",
     "f1_tolerance": 0.03
   },
+  "selection": {
+    "strategy": "balanced_round_robin"
+  },
   "limits": {
     "max_candidates": 60
   }

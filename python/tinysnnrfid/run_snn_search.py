@@ -93,6 +93,8 @@ RECOMMENDATIONS = {
     "prioritize_fsm_or_lut_rtl_baseline",
 }
 
+SELECTION_STRATEGIES = {"full_grid", "prefix", "balanced_round_robin"}
+
 
 def load_search_config(path: str | Path) -> dict[str, Any]:
     """Load and validate an SNN search JSON config."""
@@ -163,6 +165,12 @@ def validate_search_config(config: dict[str, Any]) -> None:
             not isinstance(max_candidates, int) or isinstance(max_candidates, bool) or max_candidates <= 0
         ):
             raise ValueError("limits.max_candidates must be a positive integer")
+    selection = config.get("selection", {"strategy": "balanced_round_robin"})
+    if not isinstance(selection, dict):
+        raise ValueError("selection must be an object")
+    strategy = selection.get("strategy", "balanced_round_robin")
+    if strategy not in SELECTION_STRATEGIES:
+        raise ValueError(f"Unsupported selection strategy: {strategy}")
     _validate_weight_variants()
 
 
@@ -218,8 +226,8 @@ def _validate_weight_variants() -> None:
             raise ValueError(f"Weight variant {name} must contain only integer weights")
 
 
-def expand_candidate_grid(config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Expand deterministic search dimensions into candidate points."""
+def expand_full_candidate_grid(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Expand every deterministic search dimension without applying selection limits."""
     dataset_parameters = config.get("dataset_parameters", {})
     dataset_keys = list(dataset_parameters)
     dataset_points = [
@@ -247,12 +255,98 @@ def expand_candidate_grid(config: dict[str, Any]) -> list[dict[str, Any]]:
                             "snn_parameters": snn_point,
                         }
                     )
-    max_candidates = config.get("limits", {}).get("max_candidates")
-    if max_candidates is not None:
-        candidates = candidates[:max_candidates]
-    for index, candidate in enumerate(candidates):
-        candidate["candidate_id"] = f"candidate_{index:04d}"
     return candidates
+
+
+def expand_candidate_grid(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Expand and select deterministic candidate points, preserving legacy call sites."""
+    candidates, _metadata = select_candidates(expand_full_candidate_grid(config), config)
+    return candidates
+
+
+def select_candidates(candidates: list[dict[str, Any]], config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Select candidates according to configured deterministic strategy and report coverage."""
+    strategy = config.get("selection", {}).get("strategy", "balanced_round_robin")
+    max_candidates = config.get("limits", {}).get("max_candidates")
+    if strategy == "full_grid" or max_candidates is None:
+        selected = list(candidates)
+    elif strategy == "prefix":
+        selected = list(candidates[:max_candidates])
+    elif strategy == "balanced_round_robin":
+        selected = _select_balanced_round_robin(candidates, max_candidates)
+    else:
+        raise ValueError(f"Unsupported selection strategy: {strategy}")
+    for index, candidate in enumerate(candidates):
+        candidate.pop("candidate_id", None)
+    for index, candidate in enumerate(selected):
+        candidate["candidate_id"] = f"candidate_{index:04d}"
+    metadata = build_selection_metadata(strategy, candidates, selected)
+    return selected, metadata
+
+
+def _select_balanced_round_robin(candidates: list[dict[str, Any]], max_candidates: int) -> list[dict[str, Any]]:
+    groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for candidate in candidates:
+        groups.setdefault(_candidate_group_key(candidate), []).append(candidate)
+    group_keys = sorted(groups)
+    selected: list[dict[str, Any]] = []
+    while len(selected) < max_candidates and group_keys:
+        next_keys: list[tuple[Any, ...]] = []
+        for key in group_keys:
+            group = groups[key]
+            if group and len(selected) < max_candidates:
+                selected.append(group.pop(0))
+            if group:
+                next_keys.append(key)
+        group_keys = next_keys
+    return selected
+
+
+def _candidate_group_key(candidate: dict[str, Any]) -> tuple[Any, ...]:
+    dataset = candidate["dataset_parameters"]
+    return (
+        candidate["seed"],
+        dataset.get("dataset.noise_probability", ""),
+        dataset.get("dataset.jitter_probability", ""),
+        dataset.get("dataset.dropout_probability", ""),
+        candidate["weight_variant"],
+    )
+
+
+def _dataset_condition_key(candidate: dict[str, Any]) -> str:
+    dataset = candidate["dataset_parameters"]
+    return (
+        f"noise={dataset.get('dataset.noise_probability', '')},"
+        f"jitter={dataset.get('dataset.jitter_probability', '')},"
+        f"dropout={dataset.get('dataset.dropout_probability', '')}"
+    )
+
+
+def build_selection_metadata(
+    strategy: str,
+    full_grid: list[dict[str, Any]],
+    selected: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize selected candidate coverage for machine and report output."""
+    return {
+        "strategy": strategy,
+        "full_grid_candidate_count": len(full_grid),
+        "evaluated_candidate_count": len(selected),
+        "skipped_candidate_count": len(full_grid) - len(selected),
+        "coverage": {
+            "weight_variants": _count_by(selected, lambda candidate: candidate["weight_variant"]),
+            "dataset_conditions": _count_by(selected, _dataset_condition_key),
+            "seeds": _count_by(selected, lambda candidate: str(candidate["seed"])),
+        },
+    }
+
+
+def _count_by(candidates: list[dict[str, Any]], key_fn: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        key = key_fn(candidate)
+        counts[str(key)] = counts.get(str(key), 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def apply_candidate_config(
@@ -282,11 +376,19 @@ def run_snn_search(
 ) -> dict[str, Any]:
     """Evaluate deterministic tiny_snn_v2 parameter and precision candidates."""
     base_config = load_config(search_config["base_config"])
-    candidates = expand_candidate_grid(search_config)
+    full_grid = expand_full_candidate_grid(search_config)
+    candidates, selection_metadata = select_candidates(full_grid, search_config)
     if max_candidates is not None:
         if max_candidates <= 0:
             raise ValueError("max_candidates must be greater than 0")
         candidates = candidates[:max_candidates]
+        for index, candidate in enumerate(candidates):
+            candidate["candidate_id"] = f"candidate_{index:04d}"
+        selection_metadata = build_selection_metadata(
+            f"{selection_metadata['strategy']}_cli_limit",
+            full_grid,
+            candidates,
+        )
 
     output_root = Path(output_dir or search_config["output_dir"])
     dataset_root = Path(search_config["dataset_output_root"])
@@ -354,6 +456,7 @@ def run_snn_search(
             "snn_parameters": search_config["snn_parameters"],
         },
         "search_config": search_config,
+        "selection": selection_metadata,
         "weight_variants": WEIGHT_VARIANTS,
         "runs": sorted_search_runs(run_results),
         "aggregate": aggregate,
@@ -539,6 +642,7 @@ def search_csv_row(run: dict[str, Any], recommendation: str) -> dict[str, Any]:
 def render_search_report(results: dict[str, Any]) -> str:
     """Render a Markdown report for SNN parameter search."""
     search = results["search"]
+    selection = results["selection"]
     decision = results["decision"]
     lines = [
         "# Tiny SNN v2 Parameter Search Report",
@@ -552,11 +656,51 @@ def render_search_report(results: dict[str, Any]) -> str:
         f"- Dataset parameters: `{search['dataset_parameters']}`",
         f"- SNN parameters: `{search['snn_parameters']}`",
         "",
-        "## Top Candidates By F1",
+        "## Candidate Selection Coverage",
         "",
-        "| Candidate | Variant | Seed | Candidate F1 | Reference F1 | Delta | Activity Delta | Reason |",
-        "|---|---|---:|---:|---:|---:|---:|---|",
+        f"- Strategy: `{selection['strategy']}`",
+        f"- Full grid candidates: `{selection['full_grid_candidate_count']}`",
+        f"- Evaluated candidates: `{selection['evaluated_candidate_count']}`",
+        f"- Skipped candidates: `{selection['skipped_candidate_count']}`",
+        "",
+        "### Weight Variants",
+        "",
+        "| Weight Variant | Count |",
+        "|---|---:|",
     ]
+    for variant, count in selection["coverage"]["weight_variants"].items():
+        lines.append(f"| {variant} | {count} |")
+    lines.extend(
+        [
+            "",
+            "### Seeds",
+            "",
+            "| Seed | Count |",
+            "|---|---:|",
+        ]
+    )
+    for seed, count in selection["coverage"]["seeds"].items():
+        lines.append(f"| {seed} | {count} |")
+    lines.extend(
+        [
+            "",
+            "### Dataset Conditions",
+            "",
+            "| Dataset Condition | Count |",
+            "|---|---:|",
+        ]
+    )
+    for condition, count in selection["coverage"]["dataset_conditions"].items():
+        lines.append(f"| `{condition}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Top Candidates By F1",
+            "",
+            "| Candidate | Variant | Seed | Candidate F1 | Reference F1 | Delta | Activity Delta | Reason |",
+            "|---|---|---:|---:|---:|---:|---:|---|",
+        ]
+    )
     for run in results["runs"][:10]:
         row = run["comparison"]
         lines.append(

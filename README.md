@@ -130,7 +130,10 @@ integer weight variants (`current_default`, `ternary_event_order`,
 thresholds, leak values, reset behavior, seeds, and optional dataset
 noise/jitter/dropout values. This is not training; it only evaluates
 hand-defined low-precision configurations through the existing benchmark
-pipeline.
+pipeline. When `limits.max_candidates` is set, the default
+`balanced_round_robin` selection strategy samples across weight variants,
+dataset conditions, and seeds; `full_grid` and `prefix` strategies are also
+available for exhaustive runs and debugging.
 
 Run:
 
