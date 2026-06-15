@@ -113,10 +113,11 @@ Run the test suite with `make test` or `PYTHONPATH=python python -m pytest`.
 
 `configs/sweep_default.json` runs the benchmark across a deterministic grid of
 noise, jitter, dropout, dense-noise threshold, and seed values. The sweep writes
-`results/sweeps/sweep_results.json` and `results/sweeps/sweep_report.md`,
-including best classifier by sweep point, best classifier by scenario, and
-`tiny_snn_v2` versus `fsm` comparisons. Sweep outputs are generated artifacts
-and are ignored by git.
+`results/sweeps/sweep_results.json`, `results/sweeps/sweep_summary.csv`, and
+`results/sweeps/sweep_report.md`, including best classifier by sweep point, best
+classifier by scenario, decision-summary guidance, and `tiny_snn_v2` versus
+`fsm` comparisons with F1 tolerance and software activity proxy context. Sweep
+outputs are generated artifacts and are ignored by git.
 
 ## Optional RTL flow
 

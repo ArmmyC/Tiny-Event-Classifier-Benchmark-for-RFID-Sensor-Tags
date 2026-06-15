@@ -1,3 +1,4 @@
+import csv
 import json
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from tinysnnrfid.config import DEFAULT_CONFIG
 from tinysnnrfid.run_sweep import (
     apply_sweep_config,
+    compare_candidate_to_reference,
     expand_sweep_grid,
     load_sweep_config,
     render_sweep_report,
@@ -38,6 +40,7 @@ def tiny_sweep_config(tmp_path) -> dict:
         "comparison": {
             "reference_classifier": "fsm",
             "candidate_classifier": "tiny_snn_v2",
+            "f1_tolerance": 0.05,
         },
     }
 
@@ -49,6 +52,7 @@ def test_load_sweep_config(tmp_path) -> None:
     loaded = load_sweep_config(path)
     assert loaded["name"] == "tiny"
     assert loaded["parameters"]["dataset.noise_probability"] == [0.0, 0.1]
+    assert loaded["comparison"]["f1_tolerance"] == 0.05
 
 
 @pytest.mark.parametrize(
@@ -59,6 +63,7 @@ def test_load_sweep_config(tmp_path) -> None:
         ({"parameters": {"dataset.noise_probability": []}}, "noise_probability"),
         ({"parameters": {"dataset.noise_probability": [1.1]}}, "probabilities"),
         ({"parameters": {"dataset.unknown": [0.1]}}, "Unsupported"),
+        ({"comparison": {"reference_classifier": "fsm", "candidate_classifier": "tiny_snn_v2", "f1_tolerance": -0.1}}, "f1_tolerance"),
     ],
 )
 def test_load_sweep_config_rejects_invalid_values(tmp_path, patch: dict, message: str) -> None:
@@ -101,7 +106,12 @@ def test_deterministic_small_sweep_and_output_schema(tmp_path) -> None:
     assert [run["parameters"] for run in first["runs"]] == [run["parameters"] for run in second["runs"]]
     assert first["aggregate"] == second["aggregate"]
     assert (tmp_path / "sweeps" / "sweep_results.json").is_file()
+    assert (tmp_path / "sweeps" / "sweep_summary.csv").is_file()
     assert (tmp_path / "sweeps" / "sweep_report.md").is_file()
+    with (tmp_path / "sweeps" / "sweep_summary.csv").open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == first["sweep"]["run_count"] * len(first["runs"][0]["classifiers"])
+    assert {"run_id", "seed", "classifier", "f1", "software_proxy_mean_operations"} <= set(rows[0])
     for run in first["runs"]:
         assert "dataset" in run
         assert "classifiers" in run
@@ -111,6 +121,37 @@ def test_deterministic_small_sweep_and_output_schema(tmp_path) -> None:
     assert "by_classifier" in first["aggregate"]
     assert "best_by_scenario" in first["aggregate"]
     assert first["comparison"]["candidate_classifier"] == "tiny_snn_v2"
+    assert first["comparison"]["f1_tolerance"] == 0.05
+    for field in (
+        "candidate_f1_wins",
+        "candidate_f1_losses",
+        "candidate_f1_ties_within_tolerance",
+        "candidate_activity_wins",
+        "candidate_activity_wins_within_f1_tolerance",
+        "competitive_runs",
+    ):
+        assert field in first["comparison"]
+    assert "decision" in first
+    assert first["decision"]["activity_note"].startswith("Activity metrics are software operation proxies")
+
+
+def test_compare_candidate_to_reference_uses_f1_tolerance_and_activity() -> None:
+    runs = [
+        _comparison_run("win", 0.90, 0.80, 30, 50),
+        _comparison_run("loss", 0.70, 0.90, 20, 10),
+        _comparison_run("tie_activity", 0.86, 0.88, 12, 40),
+    ]
+    comparison = compare_candidate_to_reference(runs, "tiny_snn_v2", "fsm", f1_tolerance=0.03)
+    assert comparison["candidate_f1_wins"] == 1
+    assert comparison["candidate_f1_losses"] == 1
+    assert comparison["candidate_f1_ties_within_tolerance"] == 1
+    assert comparison["candidate_activity_wins"] == 2
+    assert comparison["candidate_activity_wins_within_f1_tolerance"] == 2
+    assert [row["run_id"] for row in comparison["competitive_runs"]] == ["win", "tie_activity"]
+    tie_row = next(row for row in comparison["rows"] if row["run_id"] == "tie_activity")
+    assert tie_row["f1_outcome"] == "tie_within_tolerance"
+    assert tie_row["activity_outcome"] == "win"
+    assert tie_row["competitive"] is True
 
 
 def test_markdown_report_contains_required_sections(tmp_path) -> None:
@@ -121,4 +162,32 @@ def test_markdown_report_contains_required_sections(tmp_path) -> None:
     assert "tiny_snn_v2 vs fsm" in report
     assert "Cases Where tiny_snn_v2 Wins" in report
     assert "Cases Where tiny_snn_v2 Loses" in report
+    assert "Competitive Cases" in report
+    assert "Decision Summary" in report
+    assert "F1 ties within tolerance" in report
+    assert "activity wins within F1 tolerance" in report
     assert "not hardware power" in report
+
+
+def _comparison_run(
+    run_id: str,
+    candidate_f1: float,
+    reference_f1: float,
+    candidate_activity: float,
+    reference_activity: float,
+) -> dict:
+    return {
+        "run_id": run_id,
+        "seed": 1,
+        "parameters": {"dataset.noise_probability": 0.0},
+        "classifiers": {
+            "tiny_snn_v2": {
+                "f1": candidate_f1,
+                "activity_proxy": {"software_proxy_mean_operations": candidate_activity},
+            },
+            "fsm": {
+                "f1": reference_f1,
+                "activity_proxy": {"software_proxy_mean_operations": reference_activity},
+            },
+        },
+    }

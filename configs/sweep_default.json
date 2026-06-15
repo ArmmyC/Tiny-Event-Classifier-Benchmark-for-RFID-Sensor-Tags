@@ -15,6 +15,7 @@
   },
   "comparison": {
     "reference_classifier": "fsm",
-    "candidate_classifier": "tiny_snn_v2"
+    "candidate_classifier": "tiny_snn_v2",
+    "f1_tolerance": 0.03
   }
 }
