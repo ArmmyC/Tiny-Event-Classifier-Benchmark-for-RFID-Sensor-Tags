@@ -29,6 +29,8 @@ def test_missing_inputs_produce_insufficient_data_and_outputs(tmp_path) -> None:
     assert report_path.is_file()
     report = report_path.read_text(encoding="utf-8")
     assert "Missing inputs:" in report
+    assert "## RTL Baseline Evidence" in report
+    assert "RTL summary not available" in report
     assert "software operation proxies, not hardware power" in report
 
 
