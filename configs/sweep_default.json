@@ -1,0 +1,20 @@
+{
+  "name": "default",
+  "base_config": "configs/default.json",
+  "output_dir": "results/sweeps",
+  "dataset_output_root": "results/sweeps/generated",
+  "seeds": [1234, 1235],
+  "overrides": {
+    "dataset.num_samples": 200
+  },
+  "parameters": {
+    "dataset.noise_probability": [0.0, 0.05],
+    "dataset.jitter_probability": [0.0, 0.2],
+    "dataset.dropout_probability": [0.0, 0.1],
+    "scenario.dense_noise_spike_threshold": [8]
+  },
+  "comparison": {
+    "reference_classifier": "fsm",
+    "candidate_classifier": "tiny_snn_v2"
+  }
+}

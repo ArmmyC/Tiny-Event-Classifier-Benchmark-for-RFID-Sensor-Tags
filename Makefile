@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark test clean
+.PHONY: data eval benchmark sweep test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -8,6 +8,9 @@ eval:
 
 benchmark: data eval
 	@echo "Benchmark report: results/benchmark_report.md"
+
+sweep:
+	python python/run_sweep.py --config configs/sweep_default.json
 
 test:
 	python -m pytest
