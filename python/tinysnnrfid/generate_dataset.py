@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
         output_dir = args.output_dir or Path(config["paths"]["data_dir"])
         save_dataset(
             output_dir,
-            DatasetConfig.from_mapping(config["dataset"], config["scenario"]),
+            DatasetConfig.from_mapping(config["dataset"], config["scenario"], config.get("scenario_suite")),
             config,
         )
         print(f"Dataset generated: {output_dir}")

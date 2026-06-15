@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark sweep snn-search test clean
+.PHONY: data eval benchmark sweep snn-search temporal-benchmark test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -16,6 +16,10 @@ sweep:
 
 snn-search:
 	python python/run_snn_search.py --config configs/snn_search_default.json
+
+temporal-benchmark:
+	python python/generate_dataset.py --config configs/temporal_hard.json
+	python python/evaluate_python.py --config configs/temporal_hard.json
 
 test:
 	python -m pytest

@@ -47,6 +47,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
     },
     "scenario": {"dense_noise_spike_threshold": 8, "force_minimum_per_scenario": False},
+    "scenario_suite": {"mode": "legacy"},
     "paths": {"data_dir": "data/generated", "results_dir": "results"},
 }
 
@@ -94,6 +95,7 @@ def validate_config(config: dict[str, Any]) -> None:
         dataset = config["dataset"]
         classifiers = config["classifiers"]
         scenario = config["scenario"]
+        scenario_suite = config.get("scenario_suite", {"mode": "legacy"})
         paths = config["paths"]
     except KeyError as exc:
         raise ValueError(f"Missing required config field: {exc.args[0]}") from exc
@@ -130,10 +132,52 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ValueError("scenario.dense_noise_spike_threshold must be a non-negative integer")
     if not isinstance(scenario.get("force_minimum_per_scenario"), bool):
         raise ValueError("scenario.force_minimum_per_scenario must be a boolean")
+    _validate_scenario_suite_config(scenario_suite)
     _validate_tiny_snn_v2_config(classifiers.get("tiny_snn_v2", {}), dataset["input_width"])
     for field in ("data_dir", "results_dir"):
         if not isinstance(paths.get(field), str) or not paths[field].strip():
             raise ValueError(f"paths.{field} must be a non-empty string")
+
+
+def _validate_scenario_suite_config(settings: dict[str, Any]) -> None:
+    if not isinstance(settings, dict):
+        raise ValueError("scenario_suite must be an object")
+    mode = settings.get("mode", "legacy")
+    if mode not in {"legacy", "temporal_hard"}:
+        raise ValueError("scenario_suite.mode must be legacy or temporal_hard")
+    if mode == "temporal_hard":
+        mix = settings.get("mix")
+        allowed = {
+            "clean_positive",
+            "long_gap_positive",
+            "distractor_positive",
+            "dropout_positive",
+            "reversed_negative",
+            "partial_order_negative",
+            "burst_noise_negative",
+            "near_miss_negative",
+        }
+        if not isinstance(mix, dict) or not mix:
+            raise ValueError("scenario_suite.mix must be a non-empty object for temporal_hard")
+        unknown = sorted(set(mix) - allowed)
+        if unknown:
+            raise ValueError(f"Unknown scenario_suite.mix key(s): {', '.join(unknown)}")
+        total = 0.0
+        for key, value in mix.items():
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0.0:
+                raise ValueError(f"scenario_suite.mix.{key} must be a non-negative number")
+            total += float(value)
+        if total <= 0.0:
+            raise ValueError("scenario_suite.mix weights must sum to greater than zero")
+        for field in ("max_long_gap", "distractor_count"):
+            value = settings.get(field, 0)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"scenario_suite.{field} must be a non-negative integer")
+        burst_length = settings.get("burst_length", 1)
+        if not isinstance(burst_length, int) or isinstance(burst_length, bool) or burst_length <= 0:
+            raise ValueError("scenario_suite.burst_length must be a positive integer")
+    if "allow_legacy_tags" in settings and not isinstance(settings["allow_legacy_tags"], bool):
+        raise ValueError("scenario_suite.allow_legacy_tags must be a boolean")
 
 
 def _validate_tiny_snn_v2_config(settings: dict[str, Any], input_width: int) -> None:

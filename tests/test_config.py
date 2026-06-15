@@ -18,6 +18,13 @@ def test_load_default_config() -> None:
     assert config["classifiers"]["tiny_snn_v2"]["hidden_neurons"] == 6
     assert config["scenario"]["dense_noise_spike_threshold"] == 8
     assert config["scenario"]["force_minimum_per_scenario"] is False
+    assert config["scenario_suite"]["mode"] == "legacy"
+
+
+def test_load_temporal_hard_config() -> None:
+    config = load_config("configs/temporal_hard.json")
+    assert config["scenario_suite"]["mode"] == "temporal_hard"
+    assert "long_gap_positive" in config["scenario_suite"]["mix"]
 
 
 @pytest.mark.parametrize("field", ["noise_probability", "jitter_probability", "dropout_probability"])
@@ -45,5 +52,23 @@ def test_rejects_out_of_range_pattern(tmp_path) -> None:
 def test_rejects_invalid_scenario_config(tmp_path, scenario: dict, message: str) -> None:
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"scenario": scenario}), encoding="utf-8")
+    with pytest.raises(ValueError, match=message):
+        load_config(path)
+
+
+@pytest.mark.parametrize(
+    ("scenario_suite", "message"),
+    [
+        ({"mode": "unknown"}, "scenario_suite.mode"),
+        ({"mode": "temporal_hard", "mix": {"bogus": 1.0}}, "mix key"),
+        ({"mode": "temporal_hard", "mix": {"clean_positive": -1.0}}, "clean_positive"),
+        ({"mode": "temporal_hard", "mix": {"clean_positive": 0.0}}, "sum"),
+        ({"mode": "temporal_hard", "mix": {"clean_positive": 1.0}, "burst_length": 0}, "burst_length"),
+        ({"mode": "temporal_hard", "mix": {"clean_positive": 1.0}, "allow_legacy_tags": "yes"}, "allow_legacy_tags"),
+    ],
+)
+def test_rejects_invalid_scenario_suite_config(tmp_path, scenario_suite: dict, message: str) -> None:
+    path = tmp_path / "bad_suite.json"
+    path.write_text(json.dumps({"scenario_suite": scenario_suite}), encoding="utf-8")
     with pytest.raises(ValueError, match=message):
         load_config(path)

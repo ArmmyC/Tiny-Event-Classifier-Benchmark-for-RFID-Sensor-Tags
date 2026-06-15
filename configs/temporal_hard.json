@@ -1,0 +1,37 @@
+{
+  "dataset": {
+    "num_samples": 320,
+    "sequence_length": 40,
+    "input_width": 4,
+    "positive_ratio": 0.5,
+    "valid_pattern": [0, 1, 2],
+    "noise_probability": 0.02,
+    "jitter_probability": 0.0,
+    "dropout_probability": 0.0,
+    "max_jitter": 1,
+    "max_gap": 5,
+    "train_test_split": 0.8,
+    "random_seed": 2026
+  },
+  "scenario_suite": {
+    "mode": "temporal_hard",
+    "mix": {
+      "clean_positive": 0.15,
+      "long_gap_positive": 0.10,
+      "distractor_positive": 0.10,
+      "dropout_positive": 0.10,
+      "reversed_negative": 0.15,
+      "partial_order_negative": 0.15,
+      "burst_noise_negative": 0.15,
+      "near_miss_negative": 0.10
+    },
+    "max_long_gap": 10,
+    "burst_length": 4,
+    "distractor_count": 2,
+    "allow_legacy_tags": true
+  },
+  "paths": {
+    "data_dir": "data/generated",
+    "results_dir": "results"
+  }
+}

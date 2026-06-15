@@ -13,7 +13,7 @@ def test_end_to_end_benchmark(tmp_path) -> None:
     results_dir = tmp_path / "results"
     save_dataset(
         data_dir,
-        DatasetConfig.from_mapping(config["dataset"], config["scenario"]),
+        DatasetConfig.from_mapping(config["dataset"], config["scenario"], config.get("scenario_suite")),
         config,
     )
     results = run_benchmark(config, data_dir, results_dir)

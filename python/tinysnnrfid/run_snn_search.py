@@ -412,7 +412,7 @@ def run_snn_search(
         print(f"[{index}/{len(candidates)}] {candidate['candidate_id']} {candidate['weight_variant']}")
         save_dataset(
             data_dir,
-            DatasetConfig.from_mapping(run_config["dataset"], run_config["scenario"]),
+            DatasetConfig.from_mapping(run_config["dataset"], run_config["scenario"], run_config.get("scenario_suite")),
             run_config,
         )
         result = run_benchmark(run_config, data_dir, result_dir)
