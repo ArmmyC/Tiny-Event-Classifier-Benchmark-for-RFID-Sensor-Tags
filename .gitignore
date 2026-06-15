@@ -11,6 +11,10 @@ __pycache__/
 *.rpt
 *.blif
 *.dot
-results/**/*.json
-!results/**/.gitkeep
+data/generated/*
 !data/generated/.gitkeep
+results/*
+!results/.gitkeep
+!results/*/
+results/**/*
+!results/**/.gitkeep

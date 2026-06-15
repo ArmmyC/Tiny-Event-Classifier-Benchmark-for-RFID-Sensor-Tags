@@ -89,6 +89,9 @@ jittered, dropped, accidental-pattern, sparse-noise, and dense-noise cases.
 Activity figures are software operation proxies, not measurements of hardware
 power or energy.
 
+Generated benchmark artifacts under `data/generated/` and `results/` are
+reproducible outputs and are not committed, except for `.gitkeep` placeholders.
+
 The text-vector format is:
 
 ```text
