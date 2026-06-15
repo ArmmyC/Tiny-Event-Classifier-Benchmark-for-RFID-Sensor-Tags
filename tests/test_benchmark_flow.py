@@ -19,12 +19,15 @@ def test_end_to_end_benchmark(tmp_path) -> None:
     results = run_benchmark(config, data_dir, results_dir)
     assert (results_dir / "benchmark_results.json").is_file()
     assert (results_dir / "benchmark_report.md").is_file()
-    assert set(results["classifiers"]) == {"threshold", "fsm", "lut_like", "tiny_snn"}
+    assert set(results["classifiers"]) == {"threshold", "fsm", "lut_like", "tiny_snn", "tiny_snn_v2"}
     for values in results["classifiers"].values():
         for metric in ("accuracy", "precision", "recall", "f1"):
             assert 0.0 <= values[metric] <= 1.0
         assert values["per_scenario"]
         assert sum(item["count"] for item in values["per_scenario"].values()) == 24
+    assert "tiny_snn_v2" in results["classifiers"]
+    assert results["classifiers"]["tiny_snn_v2"]["per_scenario"]
     report = render_markdown_report(results)
     assert "## Per-Scenario Metrics" in report
+    assert "tiny_snn_v2" in report
     assert "not hardware conclusions" in report

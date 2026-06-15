@@ -7,7 +7,13 @@ from typing import Any
 
 import numpy as np
 
-from .classifiers import FSMClassifier, LUTLikeClassifier, ThresholdClassifier, TinySNNClassifier
+from .classifiers import (
+    FSMClassifier,
+    LUTLikeClassifier,
+    ThresholdClassifier,
+    TinySNNClassifier,
+    TinySNNV2Classifier,
+)
 from .config import load_config
 from .dataset import load_generated_dataset
 from .metrics import binary_metrics
@@ -24,6 +30,7 @@ def build_classifiers(config: dict[str, Any]) -> dict[str, Any]:
         "fsm": FSMClassifier(pattern=pattern, **settings.get("fsm", {})),
         "lut_like": LUTLikeClassifier(pattern=pattern, **settings.get("lut_like", {})),
         "tiny_snn": TinySNNClassifier(pattern=pattern, **settings.get("tiny_snn", {})),
+        "tiny_snn_v2": TinySNNV2Classifier(**settings.get("tiny_snn_v2", {})),
     }
     return {name: available[name] for name in settings["enabled"]}
 

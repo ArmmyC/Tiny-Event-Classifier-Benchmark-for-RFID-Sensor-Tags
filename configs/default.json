@@ -14,11 +14,27 @@
     "random_seed": 1234
   },
   "classifiers": {
-    "enabled": ["threshold", "fsm", "lut_like", "tiny_snn"],
+    "enabled": ["threshold", "fsm", "lut_like", "tiny_snn", "tiny_snn_v2"],
     "threshold": {"min_active_cycles": 3, "min_total_spikes": 3},
     "fsm": {"max_gap": 6},
     "lut_like": {"max_total_spikes": 10},
-    "tiny_snn": {"threshold": 2, "leak": 1, "membrane_max": 7, "max_gap": 6}
+    "tiny_snn": {"threshold": 2, "leak": 1, "membrane_max": 7, "max_gap": 6},
+    "tiny_snn_v2": {
+      "hidden_neurons": 6,
+      "hidden_threshold": 4,
+      "output_threshold": 3,
+      "leak": 1,
+      "membrane_min": 0,
+      "membrane_max": 7,
+      "reset_on_spike": true,
+      "input_weights": [
+        [4, 0, 0, -1, 3, 0],
+        [0, 3, 0, -1, 3, 3],
+        [0, 0, 4, -1, 0, 3],
+        [-1, -1, -1, 7, -2, -2]
+      ],
+      "output_weights": [-2, 0, 1, -3, 2, 2]
+    }
   },
   "scenario": {
     "dense_noise_spike_threshold": 8,

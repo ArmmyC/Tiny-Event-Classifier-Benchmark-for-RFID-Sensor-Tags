@@ -31,6 +31,12 @@ channel 0 fires, then channel 1 fires, then channel 2 fires
 
 Noise spikes may occur on any channel.
 
+Classifier candidates include simple threshold logic, an ordered-pattern FSM,
+a LUT-like rule baseline, the legacy `tiny_snn` integer detector, and
+`tiny_snn_v2`. The v2 SNN keeps the legacy model available for comparison but
+adds a small hidden layer of fixed-weight integer IF/LIF neurons feeding one
+output accumulator; it is still hand-configured and does not perform training.
+
 ## Repository layout
 
 ```text

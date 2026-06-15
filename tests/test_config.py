@@ -8,7 +8,14 @@ from tinysnnrfid.config import load_config
 def test_load_default_config() -> None:
     config = load_config("configs/default.json")
     assert config["dataset"]["sequence_length"] == 32
-    assert set(config["classifiers"]["enabled"]) == {"threshold", "fsm", "lut_like", "tiny_snn"}
+    assert set(config["classifiers"]["enabled"]) == {
+        "threshold",
+        "fsm",
+        "lut_like",
+        "tiny_snn",
+        "tiny_snn_v2",
+    }
+    assert config["classifiers"]["tiny_snn_v2"]["hidden_neurons"] == 6
     assert config["scenario"]["dense_noise_spike_threshold"] == 8
     assert config["scenario"]["force_minimum_per_scenario"] is False
 
