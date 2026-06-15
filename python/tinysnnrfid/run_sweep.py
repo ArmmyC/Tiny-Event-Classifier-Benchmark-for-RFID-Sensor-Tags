@@ -294,6 +294,23 @@ def compare_candidate_to_reference(
     for run in runs:
         classifiers = run["classifiers"]
         if candidate not in classifiers or reference not in classifiers:
+            row = {
+                "run_id": run["run_id"],
+                "seed": run["seed"],
+                "parameters": run["parameters"],
+                "candidate_f1": None,
+                "reference_f1": None,
+                "f1_delta": None,
+                "f1_outcome": "missing_classifier",
+                "candidate_activity": None,
+                "reference_activity": None,
+                "activity_delta": None,
+                "activity_outcome": "missing_classifier",
+                "within_f1_tolerance": False,
+                "competitive": False,
+                "competitive_reason": "missing_classifier",
+            }
+            rows.append(row)
             continue
         candidate_metrics = classifiers[candidate]
         reference_metrics = classifiers[reference]
@@ -301,7 +318,7 @@ def compare_candidate_to_reference(
         candidate_activity = float(candidate_metrics["activity_proxy"].get("software_proxy_mean_operations", 0.0))
         reference_activity = float(reference_metrics["activity_proxy"].get("software_proxy_mean_operations", 0.0))
         activity_delta = candidate_activity - reference_activity
-        if delta > f1_tolerance:
+        if delta > 0:
             f1_outcome = "win"
         elif delta < -f1_tolerance:
             f1_outcome = "loss"
@@ -309,9 +326,15 @@ def compare_candidate_to_reference(
             f1_outcome = "tie_within_tolerance"
         activity_outcome = "win" if activity_delta < 0 else "loss_or_tie"
         within_f1_tolerance = delta >= -f1_tolerance
-        competitive = f1_outcome in {"win", "tie_within_tolerance"} or (
-            activity_outcome == "win" and within_f1_tolerance
-        )
+        if delta > 0:
+            competitive = True
+            competitive_reason = "f1_win"
+        elif activity_outcome == "win" and within_f1_tolerance:
+            competitive = True
+            competitive_reason = "activity_win_within_f1_tolerance"
+        else:
+            competitive = False
+            competitive_reason = "not_competitive"
         row = {
             "run_id": run["run_id"],
             "seed": run["seed"],
@@ -326,6 +349,7 @@ def compare_candidate_to_reference(
             "activity_outcome": activity_outcome,
             "within_f1_tolerance": within_f1_tolerance,
             "competitive": competitive,
+            "competitive_reason": competitive_reason,
         }
         rows.append(row)
         if f1_outcome == "win":
@@ -383,17 +407,27 @@ def build_decision_summary(aggregate: dict[str, Any], comparison: dict[str, Any]
     reference = comparison["reference_classifier"]
     run_count = len(comparison["rows"])
     competitive_count = len(comparison["competitive_runs"])
-    if comparison["candidate_f1_wins"] > comparison["candidate_f1_losses"]:
-        recommendation = f"{candidate} is worth prioritizing: it has more F1 wins than losses against {reference}."
-    elif comparison["candidate_activity_wins_within_f1_tolerance"]:
-        recommendation = (
-            f"{candidate} is competitive for follow-up where lower software activity matters within the "
-            f"configured F1 tolerance against {reference}."
+    scenario_winners = {
+        values["classifier"]
+        for values in aggregate.get("best_by_scenario", {}).values()
+    }
+    if comparison["candidate_f1_wins"] > 0 or comparison["candidate_activity_wins_within_f1_tolerance"] > 0:
+        recommendation = "continue_snn_optimization"
+        reason = (
+            f"{candidate} has at least one true competitive case against {reference}: either an F1 win "
+            "or a lower-activity run that stays within the configured F1 tolerance."
+        )
+    elif len(scenario_winners) > 1:
+        recommendation = "add_harder_temporal_scenarios"
+        reason = (
+            "No true competitive SNN cases were found, but scenario winners differ across the sweep; "
+            "harder temporal scenarios may better expose where each classifier is useful."
         )
     else:
-        recommendation = (
-            f"{reference} remains the stronger baseline in this sweep; use {candidate} as an exploratory "
-            "fixed-weight SNN comparator."
+        recommendation = "prioritize_fsm_or_lut_rtl_baseline"
+        reason = (
+            f"{candidate} has no F1 wins or lower-activity within-tolerance cases, and one classifier "
+            "dominates the scenario summary."
         )
     return {
         "best_overall_classifier": best_classifier,
@@ -406,6 +440,7 @@ def build_decision_summary(aggregate: dict[str, Any], comparison: dict[str, Any]
         "competitive_run_count": competitive_count,
         "competitive_run_rate": competitive_count / run_count if run_count else 0.0,
         "recommendation": recommendation,
+        "reason": reason,
         "activity_note": "Activity metrics are software operation proxies, not hardware power or energy.",
     }
 
@@ -532,7 +567,9 @@ def render_sweep_report(results: dict[str, Any]) -> str:
             "|---|---:|---:|---:|---:|---|---:|---:|---:|",
         ]
     )
-    for row in sorted(comparison["rows"], key=lambda item: item["f1_delta"], reverse=True)[:10]:
+    for row in sorted(comparison["rows"], key=lambda item: item["f1_delta"] or float("-inf"), reverse=True)[:10]:
+        if row["f1_delta"] is None:
+            continue
         lines.append(
             f"| {row['run_id']} | {row['seed']} | {row['candidate_f1']:.4f} | "
             f"{row['reference_f1']:.4f} | {row['f1_delta']:.4f} | {row['f1_outcome']} | "
@@ -557,19 +594,19 @@ def render_sweep_report(results: dict[str, Any]) -> str:
     if comparison["competitive_runs"]:
         lines.extend(
             [
-                "| Run | Seed | F1 Delta | Activity Delta | Outcome | Parameters |",
-                "|---|---:|---:|---:|---|---|",
+                "| Run | Seed | F1 Delta | Activity Delta | Reason | Outcome | Parameters |",
+                "|---|---:|---:|---:|---|---|---|",
             ]
         )
         for row in comparison["competitive_runs"][:10]:
             lines.append(
                 f"| {row['run_id']} | {row['seed']} | {row['f1_delta']:.4f} | "
-                f"{row['activity_delta']:.2f} | {row['f1_outcome']} / {row['activity_outcome']} | "
-                f"`{row['parameters']}` |"
+                f"{row['activity_delta']:.2f} | {row['competitive_reason']} | "
+                f"{row['f1_outcome']} / {row['activity_outcome']} | `{row['parameters']}` |"
             )
     else:
         lines.append(
-            f"- No `{candidate}` runs were within the F1 tolerance or activity-competitive against `{reference}`."
+            f"- No `{candidate}` runs had an F1 win or lower activity within F1 tolerance against `{reference}`."
         )
 
     lines.extend(
@@ -584,7 +621,8 @@ def render_sweep_report(results: dict[str, Any]) -> str:
             f"(`{decision['competitive_run_rate']:.2%}`).",
             f"- Candidate F1 win rate: `{decision['candidate_f1_win_rate']:.2%}`.",
             f"- Candidate activity win rate: `{decision['candidate_activity_win_rate']:.2%}`.",
-            f"- Recommendation: {decision['recommendation']}",
+            f"- Recommendation: `{decision['recommendation']}`.",
+            f"- Reason: {decision['reason']}",
             f"- {decision['activity_note']}",
             "",
             "## Notes and Limitations",

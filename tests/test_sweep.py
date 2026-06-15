@@ -6,6 +6,7 @@ import pytest
 from tinysnnrfid.config import DEFAULT_CONFIG
 from tinysnnrfid.run_sweep import (
     apply_sweep_config,
+    build_decision_summary,
     compare_candidate_to_reference,
     expand_sweep_grid,
     load_sweep_config,
@@ -132,6 +133,13 @@ def test_deterministic_small_sweep_and_output_schema(tmp_path) -> None:
     ):
         assert field in first["comparison"]
     assert "decision" in first
+    assert first["decision"]["recommendation"] in {
+        "continue_snn_optimization",
+        "add_harder_temporal_scenarios",
+        "prioritize_fsm_or_lut_rtl_baseline",
+    }
+    assert isinstance(first["decision"]["reason"], str)
+    assert first["decision"]["reason"]
     assert first["decision"]["activity_note"].startswith("Activity metrics are software operation proxies")
 
 
@@ -140,18 +148,77 @@ def test_compare_candidate_to_reference_uses_f1_tolerance_and_activity() -> None
         _comparison_run("win", 0.90, 0.80, 30, 50),
         _comparison_run("loss", 0.70, 0.90, 20, 10),
         _comparison_run("tie_activity", 0.86, 0.88, 12, 40),
+        _comparison_run("tie_same_activity", 0.86, 0.88, 40, 40),
+        _comparison_run("tie_worse_activity", 0.86, 0.88, 45, 40),
     ]
     comparison = compare_candidate_to_reference(runs, "tiny_snn_v2", "fsm", f1_tolerance=0.03)
     assert comparison["candidate_f1_wins"] == 1
     assert comparison["candidate_f1_losses"] == 1
-    assert comparison["candidate_f1_ties_within_tolerance"] == 1
+    assert comparison["candidate_f1_ties_within_tolerance"] == 3
     assert comparison["candidate_activity_wins"] == 2
     assert comparison["candidate_activity_wins_within_f1_tolerance"] == 2
     assert [row["run_id"] for row in comparison["competitive_runs"]] == ["win", "tie_activity"]
-    tie_row = next(row for row in comparison["rows"] if row["run_id"] == "tie_activity")
-    assert tie_row["f1_outcome"] == "tie_within_tolerance"
-    assert tie_row["activity_outcome"] == "win"
-    assert tie_row["competitive"] is True
+    reasons = {row["run_id"]: row["competitive_reason"] for row in comparison["rows"]}
+    assert reasons["win"] == "f1_win"
+    assert reasons["tie_activity"] == "activity_win_within_f1_tolerance"
+    assert reasons["tie_same_activity"] == "not_competitive"
+    assert reasons["tie_worse_activity"] == "not_competitive"
+    assert next(row for row in comparison["rows"] if row["run_id"] == "tie_activity")["competitive"] is True
+    assert next(row for row in comparison["rows"] if row["run_id"] == "tie_same_activity")["competitive"] is False
+
+
+def test_compare_candidate_to_reference_marks_missing_classifier() -> None:
+    runs = [
+        {
+            "run_id": "missing",
+            "seed": 1,
+            "parameters": {},
+            "classifiers": {"fsm": {"f1": 1.0, "activity_proxy": {"software_proxy_mean_operations": 5}}},
+        }
+    ]
+    comparison = compare_candidate_to_reference(runs, "tiny_snn_v2", "fsm", f1_tolerance=0.03)
+    assert comparison["rows"][0]["competitive_reason"] == "missing_classifier"
+    assert comparison["rows"][0]["competitive"] is False
+    assert comparison["competitive_runs"] == []
+
+
+def test_decision_summary_uses_stable_recommendation_enum() -> None:
+    aggregate = {
+        "by_classifier": {
+            "fsm": {"mean_f1": 0.9, "mean_accuracy": 0.9, "mean_activity_proxy": 10},
+            "tiny_snn_v2": {"mean_f1": 0.85, "mean_accuracy": 0.85, "mean_activity_proxy": 8},
+        },
+        "best_by_scenario": {
+            "clean": {"classifier": "fsm"},
+            "jittered": {"classifier": "tiny_snn_v2"},
+        },
+    }
+    comparison = compare_candidate_to_reference(
+        [_comparison_run("activity", 0.88, 0.90, 5, 10)],
+        "tiny_snn_v2",
+        "fsm",
+        f1_tolerance=0.03,
+    )
+    decision = build_decision_summary(aggregate, comparison)
+    assert decision["recommendation"] == "continue_snn_optimization"
+    assert isinstance(decision["reason"], str)
+    assert decision["reason"]
+
+    non_competitive = compare_candidate_to_reference(
+        [_comparison_run("tolerance_only", 0.88, 0.90, 10, 10)],
+        "tiny_snn_v2",
+        "fsm",
+        f1_tolerance=0.03,
+    )
+    decision = build_decision_summary(aggregate, non_competitive)
+    assert decision["recommendation"] == "add_harder_temporal_scenarios"
+
+    aggregate["best_by_scenario"] = {
+        "clean": {"classifier": "fsm"},
+        "jittered": {"classifier": "fsm"},
+    }
+    decision = build_decision_summary(aggregate, non_competitive)
+    assert decision["recommendation"] == "prioritize_fsm_or_lut_rtl_baseline"
 
 
 def test_markdown_report_contains_required_sections(tmp_path) -> None:
@@ -166,6 +233,8 @@ def test_markdown_report_contains_required_sections(tmp_path) -> None:
     assert "Decision Summary" in report
     assert "F1 ties within tolerance" in report
     assert "activity wins within F1 tolerance" in report
+    assert "Recommendation: `" in report
+    assert "Reason:" in report
     assert "not hardware power" in report
 
 
