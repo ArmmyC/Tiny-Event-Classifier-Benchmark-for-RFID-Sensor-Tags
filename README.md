@@ -148,6 +148,26 @@ logic as sweep reports: an SNN candidate must either beat FSM F1 or have lower
 software activity while staying within the configured F1 tolerance. Activity
 figures remain software operation proxies, not hardware power or energy.
 
+## Temporal-Hard Workflows
+
+The temporal-hard scenario suite adds long-gap positives, distractors,
+dropouts, reversed and partial-order negatives, burst noise, and near misses.
+Use the ready-to-run commands:
+
+```bash
+make temporal-benchmark
+make temporal-sweep
+make temporal-snn-search
+```
+
+`temporal-benchmark` evaluates `configs/temporal_hard.json` once. The temporal
+sweep uses `configs/sweep_temporal_hard.json` and writes under
+`results/temporal_sweeps/`. The temporal SNN search uses
+`configs/snn_search_temporal_hard.json` and writes under
+`results/temporal_snn_search/`. These workflows use the harder scenario suite;
+the existing `benchmark`, `sweep`, and `snn-search` commands retain the legacy
+default dataset behavior.
+
 ## Optional RTL flow
 
 The RTL files are starter implementations. They are meant to be refined after the Python benchmark is stable.

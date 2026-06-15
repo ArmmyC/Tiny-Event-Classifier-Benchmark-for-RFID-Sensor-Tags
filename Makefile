@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark sweep snn-search temporal-benchmark test clean
+.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -21,9 +21,15 @@ temporal-benchmark:
 	python python/generate_dataset.py --config configs/temporal_hard.json
 	python python/evaluate_python.py --config configs/temporal_hard.json
 
+temporal-sweep:
+	python python/run_sweep.py --config configs/sweep_temporal_hard.json
+
+temporal-snn-search:
+	python python/run_snn_search.py --config configs/snn_search_temporal_hard.json
+
 test:
 	python -m pytest
 
 clean:
-	rm -f data/generated/*.npy data/generated/*.npz data/generated/*.txt data/generated/*.hex data/generated/metadata.json results/benchmark_results.json results/benchmark_report.md results/sweeps/sweep_results.json results/sweeps/sweep_summary.csv results/sweeps/sweep_report.md results/snn_search/search_results.json results/snn_search/search_summary.csv results/snn_search/search_report.md results/accuracy/*.json results/vcd/*.vcd sim.out
-	python -c "import pathlib, shutil; [shutil.rmtree(pathlib.Path(p), ignore_errors=True) for p in ('results/sweeps/generated', 'results/sweeps/runs', 'results/snn_search/generated', 'results/snn_search/runs')]"
+	rm -f data/generated/*.npy data/generated/*.npz data/generated/*.txt data/generated/*.hex data/generated/metadata.json results/benchmark_results.json results/benchmark_report.md results/sweeps/sweep_results.json results/sweeps/sweep_summary.csv results/sweeps/sweep_report.md results/snn_search/search_results.json results/snn_search/search_summary.csv results/snn_search/search_report.md results/temporal_sweeps/sweep_results.json results/temporal_sweeps/sweep_summary.csv results/temporal_sweeps/sweep_report.md results/temporal_snn_search/search_results.json results/temporal_snn_search/search_summary.csv results/temporal_snn_search/search_report.md results/accuracy/*.json results/vcd/*.vcd sim.out
+	python -c "import pathlib, shutil; [shutil.rmtree(pathlib.Path(p), ignore_errors=True) for p in ('results/sweeps/generated', 'results/sweeps/runs', 'results/snn_search/generated', 'results/snn_search/runs', 'results/temporal_sweeps/generated', 'results/temporal_sweeps/runs', 'results/temporal_snn_search/generated', 'results/temporal_snn_search/runs')]"
