@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.vcd
+*.fst
+*.out
+*.json.tmp
+*.npz
+*.csv
+*.log
+*.rpt
+*.blif
+*.dot
+results/**/*.json
+!results/**/.gitkeep
+!data/generated/.gitkeep

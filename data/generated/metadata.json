@@ -1,0 +1,14 @@
+{
+  "num_sequences": 200,
+  "seq_len": 32,
+  "input_width": 4,
+  "positive_ratio": 0.5,
+  "noise_prob": 0.03,
+  "seed": 1,
+  "motif": [
+    0,
+    1,
+    2
+  ],
+  "max_gap": 5
+}

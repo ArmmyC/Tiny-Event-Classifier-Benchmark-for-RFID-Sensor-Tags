@@ -1,0 +1,19 @@
+# Usage:
+#   yosys -s synth/yosys.ys
+# Edit TOP to select a design.
+
+set TOP threshold_detector
+
+read_verilog -sv rtl/threshold_detector.sv
+read_verilog -sv rtl/fsm_detector.sv
+read_verilog -sv rtl/lut_detector.sv
+read_verilog -sv rtl/tiny_if_neuron.sv
+read_verilog -sv rtl/tiny_snn_detector.sv
+hierarchy -top $TOP
+proc
+opt
+fsm
+opt
+techmap
+opt
+stat
