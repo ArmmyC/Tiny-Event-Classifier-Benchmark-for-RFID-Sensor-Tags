@@ -21,7 +21,11 @@ def main(argv: list[str] | None = None) -> int:
         config = load_config(args.config)
         print(f"Dataset configuration loaded: {args.config}")
         output_dir = args.output_dir or Path(config["paths"]["data_dir"])
-        save_dataset(output_dir, DatasetConfig.from_mapping(config["dataset"]), config)
+        save_dataset(
+            output_dir,
+            DatasetConfig.from_mapping(config["dataset"], config["scenario"]),
+            config,
+        )
         print(f"Dataset generated: {output_dir}")
         return 0
     except (ValueError, OSError) as exc:

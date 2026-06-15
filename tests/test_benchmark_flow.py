@@ -11,7 +11,11 @@ def test_end_to_end_benchmark(tmp_path) -> None:
     config["dataset"].update({"num_samples": 24, "sequence_length": 12, "random_seed": 9})
     data_dir = tmp_path / "data"
     results_dir = tmp_path / "results"
-    save_dataset(data_dir, DatasetConfig.from_mapping(config["dataset"]), config)
+    save_dataset(
+        data_dir,
+        DatasetConfig.from_mapping(config["dataset"], config["scenario"]),
+        config,
+    )
     results = run_benchmark(config, data_dir, results_dir)
     assert (results_dir / "benchmark_results.json").is_file()
     assert (results_dir / "benchmark_report.md").is_file()
@@ -19,4 +23,8 @@ def test_end_to_end_benchmark(tmp_path) -> None:
     for values in results["classifiers"].values():
         for metric in ("accuracy", "precision", "recall", "f1"):
             assert 0.0 <= values[metric] <= 1.0
-    assert "not hardware power" in render_markdown_report(results)
+        assert values["per_scenario"]
+        assert sum(item["count"] for item in values["per_scenario"].values()) == 24
+    report = render_markdown_report(results)
+    assert "## Per-Scenario Metrics" in report
+    assert "not hardware conclusions" in report

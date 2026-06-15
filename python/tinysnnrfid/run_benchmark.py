@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+import numpy as np
+
 from .classifiers import FSMClassifier, LUTLikeClassifier, ThresholdClassifier, TinySNNClassifier
 from .config import load_config
 from .dataset import load_generated_dataset
@@ -28,7 +30,7 @@ def build_classifiers(config: dict[str, Any]) -> dict[str, Any]:
 
 def run_benchmark(config: dict[str, Any], data_dir: Path, results_dir: Path) -> dict[str, Any]:
     """Evaluate all configured classifiers on one generated dataset and write reports."""
-    inputs, labels, metadata = load_generated_dataset(data_dir)
+    inputs, labels, metadata, scenario_tags = load_generated_dataset(data_dir)
     expected = config["dataset"]
     expected_shape = (expected["num_samples"], expected["sequence_length"], expected["input_width"])
     if inputs.shape != expected_shape:
@@ -38,9 +40,18 @@ def run_benchmark(config: dict[str, Any], data_dir: Path, results_dir: Path) -> 
         predictions = classifier.predict(inputs)
         if predictions.shape != labels.shape:
             raise ValueError(f"Classifier {name} returned shape {predictions.shape}; expected {labels.shape}")
+        per_scenario: dict[str, Any] = {}
+        tags = np.asarray(scenario_tags)
+        for scenario in sorted(set(scenario_tags)):
+            mask = tags == scenario
+            per_scenario[scenario] = {
+                "count": int(mask.sum()),
+                **binary_metrics(labels[mask], predictions[mask]),
+            }
         classifier_results[name] = {
             **binary_metrics(labels, predictions),
             "activity_proxy": classifier.activity_proxy(inputs),
+            "per_scenario": per_scenario,
         }
     results = {
         "config": config,
@@ -51,6 +62,7 @@ def run_benchmark(config: dict[str, Any], data_dir: Path, results_dir: Path) -> 
             "input_width": int(inputs.shape[2]),
             "input_shape": list(inputs.shape),
             "label_counts": metadata["label_counts"],
+            "scenario_counts": metadata["scenario_counts"],
         },
         "classifiers": classifier_results,
     }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-15T03:51:55.005665+00:00",
+  "generated_at": "2026-06-15T04:04:27.264717+00:00",
   "seed": 1234,
   "num_samples": 1000,
   "sequence_length": 32,
@@ -12,6 +12,14 @@
   "label_counts": {
     "0": 500,
     "1": 500
+  },
+  "scenario_counts": {
+    "clean_positive": 239,
+    "jittered_positive": 124,
+    "dropped_positive": 137,
+    "noise_negative": 482,
+    "accidental_pattern_negative": 5,
+    "dense_noise_negative": 13
   },
   "valid_pattern": [
     0,
@@ -60,6 +68,10 @@
         "membrane_max": 7,
         "max_gap": 6
       }
+    },
+    "scenario": {
+      "dense_noise_spike_threshold": 8,
+      "force_minimum_per_scenario": false
     },
     "paths": {
       "data_dir": "data/generated",

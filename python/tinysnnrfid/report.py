@@ -36,6 +36,7 @@ def render_markdown_report(results: dict[str, Any]) -> str:
         "",
         f"- Labels: `{dataset['label_counts']}`",
         f"- Input shape: `{dataset['input_shape']}`",
+        f"- Scenarios: `{dataset['scenario_counts']}`",
         "",
         "## Classifier Metrics",
         "",
@@ -48,6 +49,23 @@ def render_markdown_report(results: dict[str, Any]) -> str:
             f"{values['recall']:.4f} | {values['f1']:.4f} | {values['tp']} | "
             f"{values['tn']} | {values['fp']} | {values['fn']} |"
         )
+    lines.extend(
+        [
+            "",
+            "## Per-Scenario Metrics",
+            "",
+            "| Classifier | Scenario | Count | Accuracy | Precision | Recall | F1 | FP | FN |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for name, values in classifiers.items():
+        for scenario, scenario_values in values["per_scenario"].items():
+            lines.append(
+                f"| {name} | {scenario} | {scenario_values['count']} | "
+                f"{scenario_values['accuracy']:.4f} | {scenario_values['precision']:.4f} | "
+                f"{scenario_values['recall']:.4f} | {scenario_values['f1']:.4f} | "
+                f"{scenario_values['fp']} | {scenario_values['fn']} |"
+            )
     lines.extend(
         [
             "",
@@ -66,13 +84,27 @@ def render_markdown_report(results: dict[str, Any]) -> str:
             f"{proxy['software_proxy_mean_operations']:.2f} | {proxy['software_proxy_max_operations']} |"
         )
     best_name = max(classifiers, key=lambda name: (classifiers[name]["f1"], classifiers[name]["accuracy"]))
+    worst_notes = []
+    for name, values in classifiers.items():
+        worst_scenario, worst_values = min(
+            values["per_scenario"].items(),
+            key=lambda item: (item[1]["accuracy"], item[1]["f1"], item[0]),
+        )
+        worst_notes.append(
+            f"- `{name}` worst scenario: `{worst_scenario}` "
+            f"(accuracy {worst_values['accuracy']:.4f}, F1 {worst_values['f1']:.4f})."
+        )
     lines.extend(
         [
             "",
             "## Interpretation",
             "",
-            f"`{best_name}` has the strongest F1 score in this run. Activity values only compare software work; "
-            "RTL simulation and synthesis are required before drawing hardware power or area conclusions.",
+            f"`{best_name}` has the strongest overall F1 score in this run.",
+            "",
+            *worst_notes,
+            "",
+            "Scenario metrics are benchmark diagnostics, not hardware conclusions. Activity values only compare "
+            "software work; RTL simulation and synthesis are required before drawing power or area conclusions.",
             "",
         ]
     )

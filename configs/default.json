@@ -20,6 +20,10 @@
     "lut_like": {"max_total_spikes": 10},
     "tiny_snn": {"threshold": 2, "leak": 1, "membrane_max": 7, "max_gap": 6}
   },
+  "scenario": {
+    "dense_noise_spike_threshold": 8,
+    "force_minimum_per_scenario": false
+  },
   "paths": {
     "data_dir": "data/generated",
     "results_dir": "results"

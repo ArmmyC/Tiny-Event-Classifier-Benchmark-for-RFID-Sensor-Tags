@@ -79,12 +79,15 @@ Dataset generation writes:
 - `data/generated/inputs.npy`: `uint8` inputs shaped `[samples, cycles, channels]`
 - `data/generated/labels.npy`: binary labels shaped `[samples]`
 - `data/generated/metadata.json`: effective config, timestamp, seed, shape, and label counts
+- `data/generated/scenario_tags.json`: one diagnostic scenario tag per sample
 - `data/generated/test_vectors.txt`: one RTL-friendly sample per line
 - `data/generated/noisy_event_dataset.npz` and `vectors.hex`: compatibility artifacts for the existing flow
 
 Benchmark evaluation writes `results/benchmark_results.json` and
-`results/benchmark_report.md`. Activity figures are software operation proxies,
-not measurements of hardware power or energy.
+`results/benchmark_report.md`, including per-scenario metrics for clean,
+jittered, dropped, accidental-pattern, sparse-noise, and dense-noise cases.
+Activity figures are software operation proxies, not measurements of hardware
+power or energy.
 
 The text-vector format is:
 

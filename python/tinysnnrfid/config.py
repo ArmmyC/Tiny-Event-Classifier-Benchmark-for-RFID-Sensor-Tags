@@ -30,6 +30,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "lut_like": {"max_total_spikes": 10},
         "tiny_snn": {"threshold": 2, "leak": 1, "membrane_max": 7, "max_gap": 6},
     },
+    "scenario": {"dense_noise_spike_threshold": 8, "force_minimum_per_scenario": False},
     "paths": {"data_dir": "data/generated", "results_dir": "results"},
 }
 
@@ -76,6 +77,7 @@ def validate_config(config: dict[str, Any]) -> None:
     try:
         dataset = config["dataset"]
         classifiers = config["classifiers"]
+        scenario = config["scenario"]
         paths = config["paths"]
     except KeyError as exc:
         raise ValueError(f"Missing required config field: {exc.args[0]}") from exc
@@ -107,6 +109,11 @@ def validate_config(config: dict[str, Any]) -> None:
     unknown = sorted(set(enabled) - KNOWN_CLASSIFIERS)
     if unknown:
         raise ValueError(f"Unknown classifier name(s) in classifiers.enabled: {', '.join(unknown)}")
+    dense_threshold = scenario.get("dense_noise_spike_threshold")
+    if not isinstance(dense_threshold, int) or isinstance(dense_threshold, bool) or dense_threshold < 0:
+        raise ValueError("scenario.dense_noise_spike_threshold must be a non-negative integer")
+    if not isinstance(scenario.get("force_minimum_per_scenario"), bool):
+        raise ValueError("scenario.force_minimum_per_scenario must be a boolean")
     for field in ("data_dir", "results_dir"):
         if not isinstance(paths.get(field), str) or not paths[field].strip():
             raise ValueError(f"paths.{field} must be a non-empty string")
