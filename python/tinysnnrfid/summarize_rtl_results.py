@@ -9,7 +9,7 @@ import sys
 from typing import Any
 
 
-BASELINES = ("threshold", "fsm", "lut_like")
+BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2")
 SIMULATION_SUMMARY = re.compile(
     r"(?P<passed>\d+)\s+passed\s*,\s*(?P<failed>\d+)\s+failed",
     re.IGNORECASE,

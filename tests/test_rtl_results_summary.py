@@ -15,6 +15,8 @@ def test_missing_inputs_produce_missing_statuses_and_outputs(tmp_path) -> None:
     summary = summarize_rtl_results(input_dir, output_dir)
     assert all(values["status"] == "missing" for values in summary["simulations"].values())
     assert all(values["status"] == "missing" for values in summary["synthesis"].values())
+    assert summary["simulations"]["tiny_snn_v2"]["status"] == "missing"
+    assert summary["synthesis"]["tiny_snn_v2"]["status"] == "missing"
     assert summary["recommendation_context"]["baseline_rtl_available"] is False
     assert (output_dir / "rtl_summary.json").is_file()
     report = (output_dir / "rtl_report.md").read_text(encoding="utf-8")
@@ -55,6 +57,7 @@ def test_rtl_report_includes_activity_summary_when_present(tmp_path) -> None:
                     "threshold": {"found": True, "status": "available", "total_toggles": 12},
                     "fsm": {"found": True, "status": "available", "total_toggles": 7},
                     "lut_like": {"found": False, "status": "missing"},
+                    "tiny_snn_v2": {"found": False, "status": "missing"},
                 },
                 "recommendation_context": {"lowest_toggle_baseline": "fsm"},
                 "note": "Toggle counts are simulation activity proxies and are not measured silicon power.",
@@ -66,5 +69,6 @@ def test_rtl_report_includes_activity_summary_when_present(tmp_path) -> None:
     assert summary["activity"]["baselines"]["fsm"]["total_toggles"] == 7
     report = (tmp_path / "rtl_report.md").read_text(encoding="utf-8")
     assert "## Toggle Activity Summary" in report
+    assert "tiny_snn_v2" in report
     assert "Lowest available toggle-count baseline: `fsm`" in report
     assert "not measured silicon power" in report

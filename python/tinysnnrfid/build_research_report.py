@@ -26,6 +26,8 @@ RECOMMENDATIONS = {
     "insufficient_data",
 }
 
+RTL_BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2")
+
 
 def load_research_inputs(
     input_paths: dict[str, str | Path] | None = None,
@@ -390,7 +392,7 @@ def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) 
     simulations = item.get("simulations", {})
     synthesis = item.get("synthesis", {})
     lines.extend(["| Baseline | Simulation | Cell Count Proxy |", "|---|---|---:|"])
-    for name in ("threshold", "fsm", "lut_like"):
+    for name in RTL_BASELINES:
         sim_status = simulations.get(name, {}).get("status", "missing")
         cell_count = synthesis.get(name, {}).get("cell_count", "-")
         lines.append(f"| {name} | {sim_status} | {cell_count} |")
@@ -401,7 +403,7 @@ def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) 
     activity_baselines = activity.get("baselines", {}) if isinstance(activity, dict) else {}
     if activity_baselines:
         lines.extend(["", "### RTL Activity Context", "", "| Baseline | Toggle Status | Total Toggles |", "|---|---|---:|"])
-        for name in ("threshold", "fsm", "lut_like"):
+        for name in RTL_BASELINES:
             values = activity_baselines.get(name, {})
             if not isinstance(values, dict):
                 values = {}

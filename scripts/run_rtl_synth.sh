@@ -12,10 +12,12 @@ mkdir -p results/rtl
 run_detector() {
   local name="$1"
   local top="$2"
-  yosys -q -p "read_verilog -sv rtl/baselines/${name}_detector.sv; hierarchy -top ${top}; proc; opt; fsm; opt; techmap; opt; stat; write_json results/rtl/synth_${name}.json" \
+  local source="$3"
+  yosys -q -p "read_verilog -sv ${source}; hierarchy -top ${top}; proc; opt; fsm; opt; techmap; opt; stat; write_json results/rtl/synth_${name}.json" \
     2>&1 | tee "results/rtl/synth_${name}.log"
 }
 
-run_detector threshold threshold_detector
-run_detector fsm fsm_detector
-run_detector lut_like lut_like_detector
+run_detector threshold threshold_detector rtl/baselines/threshold_detector.sv
+run_detector fsm fsm_detector rtl/baselines/fsm_detector.sv
+run_detector lut_like lut_like_detector rtl/baselines/lut_like_detector.sv
+run_detector tiny_snn_v2 tiny_snn_v2_detector rtl/snn/tiny_snn_v2_detector.sv

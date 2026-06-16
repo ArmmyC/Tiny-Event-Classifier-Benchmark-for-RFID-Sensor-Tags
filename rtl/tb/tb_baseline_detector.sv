@@ -23,6 +23,10 @@ module tb_baseline_detector;
         .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN),
         .MAX_TOTAL_SPIKES(RTL_LUT_MAX_TOTAL_SPIKES)
     ) dut (.*);
+`elsif DETECTOR_TINY_SNN_V2
+    tiny_snn_v2_detector #(
+        .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN)
+    ) dut (.*);
 `else
     threshold_detector #(
         .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN),
@@ -45,6 +49,8 @@ module tb_baseline_detector;
         expected_prediction = expected_fsm[sample_index];
 `elsif DETECTOR_LUT_LIKE
         expected_prediction = expected_lut_like[sample_index];
+`elsif DETECTOR_TINY_SNN_V2
+        expected_prediction = expected_tiny_snn_v2[sample_index];
 `else
         expected_prediction = expected_threshold[sample_index];
 `endif

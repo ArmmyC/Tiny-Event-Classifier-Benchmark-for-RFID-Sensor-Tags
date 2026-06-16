@@ -26,6 +26,14 @@ def test_rtl_sources_and_modules_exist() -> None:
         for port in ("clk", "rst_n", "start", "sample_valid", "sample_bits", "done", "prediction"):
             assert port in text
     assert (ROOT / "rtl" / "tb" / "tb_baseline_detector.sv").is_file()
+    snn_source = ROOT / "rtl" / "snn" / "tiny_snn_v2_detector.sv"
+    assert snn_source.is_file()
+    snn_text = snn_source.read_text(encoding="utf-8")
+    assert "module tiny_snn_v2_detector" in snn_text
+    for port in ("clk", "rst_n", "start", "sample_valid", "sample_bits", "done", "prediction"):
+        assert port in snn_text
+    for fixed_weight_marker in ("input_weight", "output_weight", "HIDDEN_THRESHOLD", "OUTPUT_THRESHOLD"):
+        assert fixed_weight_marker in snn_text
 
 
 def test_makefile_and_scripts_cover_rtl_flow() -> None:
@@ -36,9 +44,15 @@ def test_makefile_and_scripts_cover_rtl_flow() -> None:
     tb = (ROOT / "rtl" / "tb" / "tb_baseline_detector.sv").read_text(encoding="utf-8")
     assert "VCD_FILE=%s" in tb
     assert "$dumpvars" in tb
+    assert "DETECTOR_TINY_SNN_V2" in tb
+    assert "expected_tiny_snn_v2" in tb
     sim_script = (ROOT / "scripts" / "run_rtl_sim.sh").read_text(encoding="utf-8")
-    for name in ("threshold", "fsm", "lut_like"):
-        assert f"vcd_${{name}}.vcd" in sim_script
+    assert "rtl/snn/tiny_snn_v2_detector.sv" in sim_script
+    assert "DETECTOR_TINY_SNN_V2" in sim_script
+    assert "vcd_${name}.vcd" in sim_script
+    synth_script = (ROOT / "scripts" / "run_rtl_synth.sh").read_text(encoding="utf-8")
+    assert "rtl/snn/tiny_snn_v2_detector.sv" in synth_script
+    assert "synth_${name}.json" in synth_script
     for filename in ("run_rtl_sim.sh", "run_rtl_synth.sh"):
         script = ROOT / "scripts" / filename
         assert script.is_file()
@@ -61,6 +75,7 @@ def test_export_rtl_vectors_for_tiny_config(tmp_path: Path) -> None:
     assert "expected_threshold[2]" in text
     assert "expected_fsm[2]" in text
     assert "expected_lut_like[2]" in text
+    assert "expected_tiny_snn_v2[2]" in text
 
 
 def test_scripts_skip_when_tools_are_missing(tmp_path: Path) -> None:

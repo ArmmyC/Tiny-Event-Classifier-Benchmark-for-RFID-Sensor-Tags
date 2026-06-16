@@ -126,6 +126,7 @@ def test_research_report_loads_rtl_summary_when_present(tmp_path) -> None:
                     "threshold": {"found": True, "status": "available", "total_toggles": 21},
                     "fsm": {"found": True, "status": "available", "total_toggles": 10},
                     "lut_like": {"found": False, "status": "missing"},
+                    "tiny_snn_v2": {"found": False, "status": "missing"},
                 },
                 "recommendation_context": {"lowest_toggle_baseline": "fsm"},
             },
@@ -219,17 +220,20 @@ def rtl_payload() -> dict:
             "threshold": {"found": True, "status": "pass", "passed": 3, "failed": 0},
             "fsm": {"found": False, "status": "missing"},
             "lut_like": {"found": False, "status": "missing"},
+            "tiny_snn_v2": {"found": False, "status": "missing"},
         },
         "synthesis": {
             "threshold": {"found": True, "status": "available", "cell_count": 12},
             "fsm": {"found": False, "status": "missing"},
             "lut_like": {"found": False, "status": "missing"},
+            "tiny_snn_v2": {"found": False, "status": "missing"},
         },
         "activity": {
             "baselines": {
                 "threshold": {"found": True, "status": "available", "total_toggles": 21},
                 "fsm": {"found": True, "status": "available", "total_toggles": 10},
                 "lut_like": {"found": False, "status": "missing"},
+                "tiny_snn_v2": {"found": False, "status": "missing"},
             },
             "recommendation_context": {"lowest_toggle_baseline": "fsm"},
         },

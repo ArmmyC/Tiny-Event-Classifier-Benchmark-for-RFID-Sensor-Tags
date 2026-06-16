@@ -6,7 +6,7 @@ import sys
 
 import numpy as np
 
-from .classifiers import FSMClassifier, LUTLikeClassifier, ThresholdClassifier
+from .classifiers import FSMClassifier, LUTLikeClassifier, ThresholdClassifier, TinySNNV2Classifier
 from .config import load_config
 from .dataset import DatasetConfig, generate_noisy_event_dataset
 
@@ -48,14 +48,17 @@ def export_rtl_vectors(
     threshold_settings = classifier_settings["threshold"]
     fsm_settings = classifier_settings["fsm"]
     lut_settings = classifier_settings["lut_like"]
+    tiny_snn_v2_settings = classifier_settings["tiny_snn_v2"]
     threshold = ThresholdClassifier(**threshold_settings)
     fsm = FSMClassifier(pattern=(0, 1, 2), **fsm_settings)
     lut_like = LUTLikeClassifier(pattern=(0, 1, 2), **lut_settings)
+    tiny_snn_v2 = TinySNNV2Classifier(**tiny_snn_v2_settings)
 
     predictions = {
         "threshold": threshold.predict(inputs),
         "fsm": fsm.predict(inputs),
         "lut_like": lut_like.predict(inputs),
+        "tiny_snn_v2": tiny_snn_v2.predict(inputs),
     }
     width = int(inputs.shape[2])
     digits = max(1, (width + 3) // 4)
@@ -72,6 +75,7 @@ def export_rtl_vectors(
         "logic expected_threshold [0:RTL_NUM_SAMPLES-1];",
         "logic expected_fsm [0:RTL_NUM_SAMPLES-1];",
         "logic expected_lut_like [0:RTL_NUM_SAMPLES-1];",
+        "logic expected_tiny_snn_v2 [0:RTL_NUM_SAMPLES-1];",
         "initial begin",
     ]
     flat_inputs = inputs.reshape(-1, width)
