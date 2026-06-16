@@ -127,9 +127,18 @@ def test_rtl_source_clips_after_leak_before_adding_drive() -> None:
 def test_snn_rtl_initializes_comb_temporaries_before_sample_valid(source_path: Path) -> None:
     source = source_path.read_text(encoding="utf-8")
     sample_valid_index = source.index("if (sample_valid) begin")
-    required_assignments = ["output_value = output_membrane;", "drive = 0;"]
     if source_path.name == "tiny_snn_v2_detector.sv":
-        required_assignments.append("hidden_value = 0;")
+        required_assignments = [
+            "hidden_value = 0;",
+            "output_value = output_membrane;",
+            "drive = 0;",
+        ]
+    else:
+        required_assignments = [
+            "output_value = output_membrane;",
+            "drive = 0;",
+            "update = 4'd0;",
+        ]
     for assignment in required_assignments:
         assert assignment in source
         assert source.index(assignment) < sample_valid_index
@@ -169,3 +178,14 @@ def test_sparse_snn_rtl_interface_is_unchanged() -> None:
         "output logic                   prediction",
     ):
         assert port in source
+
+
+def test_sparse_snn_rtl_update_lookup_tables_are_complete() -> None:
+    source = (ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv").read_text(encoding="utf-8")
+    for drive in ("n3", "n2", "n1", "p0", "p1", "p2", "p3", "p4", "p5", "p6"):
+        assert f"function automatic logic [3:0] update_drive_{drive}" in source
+    for neuron in range(6):
+        assert f"function automatic logic [3:0] hidden_update_{neuron}" in source
+        assert f"update = hidden_update_{neuron}(hidden_membrane[{neuron}], sample_bits);" in source
+    for pattern in ("4'b0000", "4'b0111", "4'b1000", "4'b1110"):
+        assert pattern in source

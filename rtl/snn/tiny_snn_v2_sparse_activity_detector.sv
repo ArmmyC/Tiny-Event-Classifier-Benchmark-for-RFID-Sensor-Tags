@@ -50,49 +50,6 @@ module tiny_snn_v2_sparse_activity_detector #(
     logic hidden_spike [0:HIDDEN_NEURONS-1];
     logic next_prediction;
 
-    function automatic calc_t hidden_drive_0(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_0 = (bits[0] ? W_C0_N0 : 5'sd0) + (bits[3] ? W_C3_N0 : 5'sd0);
-        end
-    endfunction
-
-    function automatic calc_t hidden_drive_1(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_1 = (bits[1] ? W_C1_N1 : 5'sd0) + (bits[3] ? W_C3_N1 : 5'sd0);
-        end
-    endfunction
-
-    function automatic calc_t hidden_drive_2(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_2 = (bits[2] ? W_C2_N2 : 5'sd0) + (bits[3] ? W_C3_N2 : 5'sd0);
-        end
-    endfunction
-
-    function automatic calc_t hidden_drive_3(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_3 = (bits[0] ? W_C0_N3 : 5'sd0)
-                + (bits[1] ? W_C1_N3 : 5'sd0)
-                + (bits[2] ? W_C2_N3 : 5'sd0)
-                + (bits[3] ? W_C3_N3 : 5'sd0);
-        end
-    endfunction
-
-    function automatic calc_t hidden_drive_4(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_4 = (bits[0] ? W_C0_N4 : 5'sd0)
-                + (bits[1] ? W_C1_N4 : 5'sd0)
-                + (bits[3] ? W_C3_N4 : 5'sd0);
-        end
-    endfunction
-
-    function automatic calc_t hidden_drive_5(input logic [INPUT_WIDTH-1:0] bits);
-        begin
-            hidden_drive_5 = (bits[1] ? W_C1_N5 : 5'sd0)
-                + (bits[2] ? W_C2_N5 : 5'sd0)
-                + (bits[3] ? W_C3_N5 : 5'sd0);
-        end
-    endfunction
-
     function automatic logic [2:0] clip_membrane(input calc_t value);
         begin
             if (value < 5'sd0) begin
@@ -105,17 +62,172 @@ module tiny_snn_v2_sparse_activity_detector #(
         end
     endfunction
 
-    function automatic logic [3:0] hidden_update(input logic [2:0] membrane, input calc_t drive);
-        calc_t hidden_value;
-        logic [2:0] clipped_value;
+    function automatic logic [3:0] update_drive_n3(input logic [2:0] membrane);
         begin
-            hidden_value = calc_t'(clip_membrane(calc_t'(membrane) - 5'sd1));
-            clipped_value = clip_membrane(hidden_value + drive);
-            if (clipped_value >= 3'd4) begin
-                hidden_update = {1'b1, 3'd0};
-            end else begin
-                hidden_update = {1'b0, clipped_value};
-            end
+            case (membrane)
+                3'd5: update_drive_n3 = {1'b0, 3'd1};
+                3'd6: update_drive_n3 = {1'b0, 3'd2};
+                3'd7: update_drive_n3 = {1'b0, 3'd3};
+                default: update_drive_n3 = 4'd0;
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_n2(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd4: update_drive_n2 = {1'b0, 3'd1};
+                3'd5: update_drive_n2 = {1'b0, 3'd2};
+                3'd6: update_drive_n2 = {1'b0, 3'd3};
+                3'd7: update_drive_n2 = {1'b1, 3'd0};
+                default: update_drive_n2 = 4'd0;
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_n1(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd3: update_drive_n1 = {1'b0, 3'd1};
+                3'd4: update_drive_n1 = {1'b0, 3'd2};
+                3'd5: update_drive_n1 = {1'b0, 3'd3};
+                3'd6, 3'd7: update_drive_n1 = {1'b1, 3'd0};
+                default: update_drive_n1 = 4'd0;
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p0(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd2: update_drive_p0 = {1'b0, 3'd1};
+                3'd3: update_drive_p0 = {1'b0, 3'd2};
+                3'd4: update_drive_p0 = {1'b0, 3'd3};
+                3'd5, 3'd6, 3'd7: update_drive_p0 = {1'b1, 3'd0};
+                default: update_drive_p0 = 4'd0;
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p1(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd0, 3'd1: update_drive_p1 = {1'b0, 3'd1};
+                3'd2: update_drive_p1 = {1'b0, 3'd2};
+                3'd3: update_drive_p1 = {1'b0, 3'd3};
+                default: update_drive_p1 = {1'b1, 3'd0};
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p2(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd0, 3'd1: update_drive_p2 = {1'b0, 3'd2};
+                3'd2: update_drive_p2 = {1'b0, 3'd3};
+                default: update_drive_p2 = {1'b1, 3'd0};
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p3(input logic [2:0] membrane);
+        begin
+            case (membrane)
+                3'd0, 3'd1: update_drive_p3 = {1'b0, 3'd3};
+                default: update_drive_p3 = {1'b1, 3'd0};
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p4(input logic [2:0] membrane);
+        begin
+            update_drive_p4 = {1'b1, 3'd0};
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p5(input logic [2:0] membrane);
+        begin
+            update_drive_p5 = {1'b1, 3'd0};
+        end
+    endfunction
+
+    function automatic logic [3:0] update_drive_p6(input logic [2:0] membrane);
+        begin
+            update_drive_p6 = {1'b1, 3'd0};
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_0(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case ({bits[3], bits[0]})
+                2'b00: hidden_update_0 = update_drive_p0(membrane);
+                2'b01: hidden_update_0 = update_drive_p4(membrane);
+                2'b10: hidden_update_0 = update_drive_n1(membrane);
+                default: hidden_update_0 = update_drive_p3(membrane);
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_1(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case ({bits[3], bits[1]})
+                2'b00: hidden_update_1 = update_drive_p0(membrane);
+                2'b01: hidden_update_1 = update_drive_p3(membrane);
+                2'b10: hidden_update_1 = update_drive_n1(membrane);
+                default: hidden_update_1 = update_drive_p2(membrane);
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_2(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case ({bits[3], bits[2]})
+                2'b00: hidden_update_2 = update_drive_p0(membrane);
+                2'b01: hidden_update_2 = update_drive_p4(membrane);
+                2'b10: hidden_update_2 = update_drive_n1(membrane);
+                default: hidden_update_2 = update_drive_p3(membrane);
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_3(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case (bits)
+                4'b0000: hidden_update_3 = update_drive_p0(membrane);
+                4'b0001, 4'b0010, 4'b0100: hidden_update_3 = update_drive_n1(membrane);
+                4'b0011, 4'b0101, 4'b0110: hidden_update_3 = update_drive_n2(membrane);
+                4'b0111: hidden_update_3 = update_drive_n3(membrane);
+                4'b1000: hidden_update_3 = update_drive_p6(membrane);
+                4'b1001, 4'b1010, 4'b1100: hidden_update_3 = update_drive_p5(membrane);
+                4'b1011, 4'b1101, 4'b1110: hidden_update_3 = update_drive_p4(membrane);
+                default: hidden_update_3 = update_drive_p3(membrane);
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_4(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case ({bits[3], bits[1], bits[0]})
+                3'b000: hidden_update_4 = update_drive_p0(membrane);
+                3'b001, 3'b010: hidden_update_4 = update_drive_p2(membrane);
+                3'b011: hidden_update_4 = update_drive_p4(membrane);
+                3'b100: hidden_update_4 = update_drive_n1(membrane);
+                3'b101, 3'b110: hidden_update_4 = update_drive_p1(membrane);
+                default: hidden_update_4 = update_drive_p3(membrane);
+            endcase
+        end
+    endfunction
+
+    function automatic logic [3:0] hidden_update_5(input logic [2:0] membrane, input logic [INPUT_WIDTH-1:0] bits);
+        begin
+            case ({bits[3], bits[2], bits[1]})
+                3'b000: hidden_update_5 = update_drive_p0(membrane);
+                3'b001, 3'b010: hidden_update_5 = update_drive_p2(membrane);
+                3'b011: hidden_update_5 = update_drive_p4(membrane);
+                3'b100: hidden_update_5 = update_drive_n1(membrane);
+                3'b101, 3'b110: hidden_update_5 = update_drive_p1(membrane);
+                default: hidden_update_5 = update_drive_p3(membrane);
+            endcase
         end
     endfunction
 
@@ -145,14 +257,14 @@ module tiny_snn_v2_sparse_activity_detector #(
         output_value = output_membrane;
         drive = 0;
         update = 4'd0;
-        next_output_membrane = output_membrane;
+        next_output_membrane = 3'd0;
         next_prediction = prediction;
-        next_hidden_membrane[0] = hidden_membrane[0];
-        next_hidden_membrane[1] = hidden_membrane[1];
-        next_hidden_membrane[2] = hidden_membrane[2];
-        next_hidden_membrane[3] = hidden_membrane[3];
-        next_hidden_membrane[4] = hidden_membrane[4];
-        next_hidden_membrane[5] = hidden_membrane[5];
+        next_hidden_membrane[0] = 3'd0;
+        next_hidden_membrane[1] = 3'd0;
+        next_hidden_membrane[2] = 3'd0;
+        next_hidden_membrane[3] = 3'd0;
+        next_hidden_membrane[4] = 3'd0;
+        next_hidden_membrane[5] = 3'd0;
         hidden_spike[0] = 1'b0;
         hidden_spike[1] = 1'b0;
         hidden_spike[2] = 1'b0;
@@ -162,22 +274,22 @@ module tiny_snn_v2_sparse_activity_detector #(
 
         if (sample_valid) begin
             output_value = calc_t'(clip_membrane(calc_t'(output_membrane) - 5'sd1));
-            update = hidden_update(hidden_membrane[0], hidden_drive_0(sample_bits));
+            update = hidden_update_0(hidden_membrane[0], sample_bits);
             hidden_spike[0] = update[3];
             next_hidden_membrane[0] = update[2:0];
-            update = hidden_update(hidden_membrane[1], hidden_drive_1(sample_bits));
+            update = hidden_update_1(hidden_membrane[1], sample_bits);
             hidden_spike[1] = update[3];
             next_hidden_membrane[1] = update[2:0];
-            update = hidden_update(hidden_membrane[2], hidden_drive_2(sample_bits));
+            update = hidden_update_2(hidden_membrane[2], sample_bits);
             hidden_spike[2] = update[3];
             next_hidden_membrane[2] = update[2:0];
-            update = hidden_update(hidden_membrane[3], hidden_drive_3(sample_bits));
+            update = hidden_update_3(hidden_membrane[3], sample_bits);
             hidden_spike[3] = update[3];
             next_hidden_membrane[3] = update[2:0];
-            update = hidden_update(hidden_membrane[4], hidden_drive_4(sample_bits));
+            update = hidden_update_4(hidden_membrane[4], sample_bits);
             hidden_spike[4] = update[3];
             next_hidden_membrane[4] = update[2:0];
-            update = hidden_update(hidden_membrane[5], hidden_drive_5(sample_bits));
+            update = hidden_update_5(hidden_membrane[5], sample_bits);
             hidden_spike[5] = update[3];
             next_hidden_membrane[5] = update[2:0];
 
