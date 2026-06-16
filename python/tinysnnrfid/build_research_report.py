@@ -86,6 +86,8 @@ def extract_rtl_comparison_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "recommendation": payload.get("recommendation"),
         "reason": payload.get("reason"),
         "reference_design": payload.get("reference_design"),
+        "candidate_design": payload.get("candidate_design"),
+        "legacy_snn_design": payload.get("legacy_snn_design"),
         "designs": payload.get("designs", {}),
         "tiny_snn_v2_context": payload.get("tiny_snn_v2_context", {}),
         "tiny_snn_v2_sparse_activity_context": payload.get("tiny_snn_v2_sparse_activity_context", {}),
@@ -449,9 +451,9 @@ def _append_rtl_comparison_section(lines: list[str], item: dict[str, Any] | None
     lines.append(f"- Recommendation: `{item.get('recommendation') or 'unknown'}`.")
     if item.get("reason"):
         lines.append(f"- Reason: {item['reason']}")
+    lines.append(f"- Candidate design: `{item.get('candidate_design') or 'tiny_snn_v2_sparse_activity'}`.")
     lines.append(f"- Reference baseline: `{item.get('reference_design') or 'fsm'}`.")
-    lines.append(f"- `tiny_snn_v2` cell ratio vs FSM: `{_format_optional(context.get('cell_ratio_vs_fsm'))}`.")
-    lines.append(f"- `tiny_snn_v2` toggle ratio vs FSM: `{_format_optional(context.get('toggle_ratio_vs_fsm'))}`.")
+    lines.append(f"- Legacy/default SNN context: `{item.get('legacy_snn_design') or 'tiny_snn_v2'}`.")
     if sparse_context:
         lines.append(
             "- `tiny_snn_v2_sparse_activity` cell ratio vs FSM: "
@@ -461,6 +463,8 @@ def _append_rtl_comparison_section(lines: list[str], item: dict[str, Any] | None
             "- `tiny_snn_v2_sparse_activity` toggle ratio vs FSM: "
             f"`{_format_optional(sparse_context.get('toggle_ratio_vs_fsm'))}`."
         )
+    lines.append(f"- `tiny_snn_v2` legacy cell ratio vs FSM: `{_format_optional(context.get('cell_ratio_vs_fsm'))}`.")
+    lines.append(f"- `tiny_snn_v2` legacy toggle ratio vs FSM: `{_format_optional(context.get('toggle_ratio_vs_fsm'))}`.")
     lines.extend([
         "",
         item.get("note")

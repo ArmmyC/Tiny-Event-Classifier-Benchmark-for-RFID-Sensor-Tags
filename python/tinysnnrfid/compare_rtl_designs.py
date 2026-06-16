@@ -10,8 +10,8 @@ from typing import Any
 
 DESIGNS = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 REFERENCE_DESIGN = "fsm"
-SNN_DESIGN = "tiny_snn_v2"
-SPARSE_ACTIVITY_DESIGN = "tiny_snn_v2_sparse_activity"
+LEGACY_SNN_DESIGN = "tiny_snn_v2"
+CANDIDATE_DESIGN = "tiny_snn_v2_sparse_activity"
 CONTINUE_RATIO_LIMIT = 2.0
 OPTIMIZE_RATIO_LIMIT = 4.0
 
@@ -66,30 +66,33 @@ def build_design_rows(
     return rows
 
 
-def choose_recommendation(rows: dict[str, dict[str, Any]]) -> tuple[str, str]:
+def choose_recommendation(
+    rows: dict[str, dict[str, Any]],
+    candidate_design: str = CANDIDATE_DESIGN,
+) -> tuple[str, str]:
     fsm = rows.get(REFERENCE_DESIGN, {})
-    snn = rows.get(SNN_DESIGN, {})
-    if snn.get("simulation_status") != "pass":
-        return "insufficient_rtl_data", "tiny_snn_v2 simulation is missing or not passing."
+    candidate = rows.get(candidate_design, {})
+    if candidate.get("simulation_status") != "pass":
+        return "insufficient_rtl_data", f"{candidate_design} simulation is missing or not passing."
     if fsm.get("simulation_status") != "pass":
         return "insufficient_rtl_data", "FSM reference simulation is missing or not passing."
-    cell_ratio = snn.get("cell_ratio_vs_fsm")
-    toggle_ratio = snn.get("toggle_ratio_vs_fsm")
+    cell_ratio = candidate.get("cell_ratio_vs_fsm")
+    toggle_ratio = candidate.get("toggle_ratio_vs_fsm")
     if cell_ratio is None or toggle_ratio is None:
-        return "insufficient_rtl_data", "FSM and tiny_snn_v2 cell/toggle proxy data are required."
+        return "insufficient_rtl_data", f"FSM and {candidate_design} cell/toggle proxy data are required."
     if cell_ratio <= CONTINUE_RATIO_LIMIT and toggle_ratio <= CONTINUE_RATIO_LIMIT:
         return (
             "continue_snn_rtl_optimization",
-            "tiny_snn_v2 RTL proxy costs are within 2.0x of the FSM reference.",
+            f"{candidate_design} RTL proxy costs are within 2.0x of the FSM reference.",
         )
     if cell_ratio <= OPTIMIZE_RATIO_LIMIT or toggle_ratio <= OPTIMIZE_RATIO_LIMIT:
         return (
             "optimize_snn_rtl_before_more_features",
-            "tiny_snn_v2 has at least one proxy cost within 4.0x of FSM, but needs RTL optimization.",
+            f"{candidate_design} has at least one proxy cost within 4.0x of FSM, but needs RTL optimization.",
         )
     return (
         "prioritize_fsm_or_lut_rtl_baseline",
-        "tiny_snn_v2 cell and toggle proxy ratios are both above 4.0x versus FSM.",
+        f"{candidate_design} cell and toggle proxy ratios are both above 4.0x versus FSM.",
     )
 
 
@@ -99,8 +102,8 @@ def build_comparison_summary(input_dir: str | Path = "results/rtl") -> dict[str,
     activity_summary, activity_info = _load_optional_json(directory / "rtl_activity_summary.json")
     rows = build_design_rows(rtl_summary, activity_summary)
     recommendation, reason = choose_recommendation(rows)
-    snn = rows[SNN_DESIGN]
-    sparse = rows[SPARSE_ACTIVITY_DESIGN]
+    snn = rows[LEGACY_SNN_DESIGN]
+    sparse = rows[CANDIDATE_DESIGN]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "inputs": {
@@ -108,6 +111,8 @@ def build_comparison_summary(input_dir: str | Path = "results/rtl") -> dict[str,
             "rtl_activity_summary": activity_info,
         },
         "reference_design": REFERENCE_DESIGN,
+        "candidate_design": CANDIDATE_DESIGN,
+        "legacy_snn_design": LEGACY_SNN_DESIGN,
         "designs": rows,
         "recommendation": recommendation,
         "reason": reason,
@@ -165,19 +170,25 @@ def render_comparison_report(summary: dict[str, Any]) -> str:
     lines.extend(["", "## Toggle Count Proxy Comparison", "", "| Design | Total Toggles | Ratio vs FSM |", "|---|---:|---:|"])
     for name, values in summary["designs"].items():
         lines.append(f"| {name} | {_fmt(values.get('total_toggles'))} | {_fmt(values.get('toggle_ratio_vs_fsm'))} |")
+    candidate_design = summary.get("candidate_design", CANDIDATE_DESIGN)
+    legacy_snn_design = summary.get("legacy_snn_design", LEGACY_SNN_DESIGN)
+    reference_design = summary.get("reference_design", REFERENCE_DESIGN)
     context = summary["tiny_snn_v2_context"]
     sparse_context = summary.get("tiny_snn_v2_sparse_activity_context", {})
     lines.extend(
         [
             "",
-            "## Tiny SNN v2 Decision",
+            "## Primary RTL Candidate Decision",
             "",
+            f"- Candidate design: `{candidate_design}`.",
+            f"- Reference design: `{reference_design}`.",
+            f"- Legacy/default SNN context: `{legacy_snn_design}`.",
             f"- Recommendation: `{summary['recommendation']}`.",
             f"- Reason: {summary['reason']}",
-            f"- `tiny_snn_v2` cell ratio vs FSM: `{_fmt(context.get('cell_ratio_vs_fsm'))}`.",
-            f"- `tiny_snn_v2` toggle ratio vs FSM: `{_fmt(context.get('toggle_ratio_vs_fsm'))}`.",
             f"- `tiny_snn_v2_sparse_activity` cell ratio vs FSM: `{_fmt(sparse_context.get('cell_ratio_vs_fsm'))}`.",
             f"- `tiny_snn_v2_sparse_activity` toggle ratio vs FSM: `{_fmt(sparse_context.get('toggle_ratio_vs_fsm'))}`.",
+            f"- `tiny_snn_v2` legacy cell ratio vs FSM: `{_fmt(context.get('cell_ratio_vs_fsm'))}`.",
+            f"- `tiny_snn_v2` legacy toggle ratio vs FSM: `{_fmt(context.get('toggle_ratio_vs_fsm'))}`.",
             "",
             "## Notes and Limitations",
             "",
