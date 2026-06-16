@@ -182,10 +182,42 @@ def test_sparse_snn_rtl_interface_is_unchanged() -> None:
 
 def test_sparse_snn_rtl_update_lookup_tables_are_complete() -> None:
     source = (ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv").read_text(encoding="utf-8")
-    for drive in ("n3", "n2", "n1", "p0", "p1", "p2", "p3", "p4", "p5", "p6"):
+    for drive in ("n3", "n2", "n1", "p0", "p1", "p2", "p3"):
         assert f"function automatic logic [3:0] update_drive_{drive}" in source
+    for drive in ("p4", "p5", "p6"):
+        assert f"function automatic logic [3:0] update_drive_{drive}" not in source
     for neuron in range(6):
         assert f"function automatic logic [3:0] hidden_update_{neuron}" in source
-        assert f"update = hidden_update_{neuron}(hidden_membrane[{neuron}], sample_bits);" in source
-    for pattern in ("4'b0000", "4'b0111", "4'b1000", "4'b1110"):
+        assert f"update = hidden_update_{neuron}(hidden_membrane_{neuron}, sample_bits);" in source
+    for pattern in ("3'b000", "default: hidden_update_3", "4'b1000", "&bits[2:0]"):
         assert pattern in source
+
+
+def test_sparse_snn_rtl_fixed_weights_are_unchanged() -> None:
+    source = (ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv").read_text(encoding="utf-8")
+    expected_weights = {
+        "W_C0_N0": "5'sd4",
+        "W_C0_N3": "-5'sd1",
+        "W_C0_N4": "5'sd2",
+        "W_C1_N1": "5'sd3",
+        "W_C1_N3": "-5'sd1",
+        "W_C1_N4": "5'sd2",
+        "W_C1_N5": "5'sd2",
+        "W_C2_N2": "5'sd4",
+        "W_C2_N3": "-5'sd1",
+        "W_C2_N5": "5'sd2",
+        "W_C3_N0": "-5'sd1",
+        "W_C3_N1": "-5'sd1",
+        "W_C3_N2": "-5'sd1",
+        "W_C3_N3": "5'sd6",
+        "W_C3_N4": "-5'sd1",
+        "W_C3_N5": "-5'sd1",
+        "OW_N0": "-5'sd1",
+        "OW_N1": "5'sd0",
+        "OW_N2": "5'sd1",
+        "OW_N3": "-5'sd2",
+        "OW_N4": "5'sd1",
+        "OW_N5": "5'sd1",
+    }
+    for name, value in expected_weights.items():
+        assert f"localparam calc_t {name} = {value};" in source
