@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search software-evidence research-report research-writeup rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare rtl-evidence evidence evidence-manifest artifact-card evidence-smoke test clean
+.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search temporal-snn-optimize software-evidence research-report research-writeup rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare rtl-evidence evidence evidence-manifest artifact-card evidence-smoke test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -26,6 +26,10 @@ temporal-sweep:
 
 temporal-snn-search:
 	python python/run_snn_search.py --config configs/snn_search_temporal_hard.json
+
+temporal-snn-optimize:
+	python python/run_snn_search.py --config configs/snn_search_temporal_hard_optimized.json
+	python python/build_temporal_snn_optimization_gate.py --search-results results/temporal_snn_optimized/search_results.json --previous-search-results results/temporal_snn_search/search_results.json --output-dir results/temporal_snn_optimized
 
 software-evidence: benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search
 
@@ -70,5 +74,5 @@ test:
 	python -m pytest
 
 clean:
-	rm -f data/generated/*.npy data/generated/*.npz data/generated/*.txt data/generated/*.hex data/generated/metadata.json results/benchmark_results.json results/benchmark_report.md results/research_decision_report.md results/research_decision_summary.json results/evidence_manifest.json results/evidence_manifest.md results/artifact_card.json results/artifact_card.md results/research_writeup.md results/research_writeup_summary.json results/sweeps/sweep_results.json results/sweeps/sweep_summary.csv results/sweeps/sweep_report.md results/snn_search/search_results.json results/snn_search/search_summary.csv results/snn_search/search_report.md results/temporal_sweeps/sweep_results.json results/temporal_sweeps/sweep_summary.csv results/temporal_sweeps/sweep_report.md results/temporal_snn_search/search_results.json results/temporal_snn_search/search_summary.csv results/temporal_snn_search/search_report.md results/accuracy/*.json results/vcd/*.vcd sim.out
-	python -c "import pathlib, shutil; [shutil.rmtree(pathlib.Path(p), ignore_errors=True) for p in ('results/sweeps/generated', 'results/sweeps/runs', 'results/snn_search/generated', 'results/snn_search/runs', 'results/temporal_sweeps/generated', 'results/temporal_sweeps/runs', 'results/temporal_snn_search/generated', 'results/temporal_snn_search/runs', 'results/rtl', 'results/smoke')]"
+	rm -f data/generated/*.npy data/generated/*.npz data/generated/*.txt data/generated/*.hex data/generated/metadata.json results/benchmark_results.json results/benchmark_report.md results/research_decision_report.md results/research_decision_summary.json results/evidence_manifest.json results/evidence_manifest.md results/artifact_card.json results/artifact_card.md results/research_writeup.md results/research_writeup_summary.json results/sweeps/sweep_results.json results/sweeps/sweep_summary.csv results/sweeps/sweep_report.md results/snn_search/search_results.json results/snn_search/search_summary.csv results/snn_search/search_report.md results/temporal_sweeps/sweep_results.json results/temporal_sweeps/sweep_summary.csv results/temporal_sweeps/sweep_report.md results/temporal_snn_search/search_results.json results/temporal_snn_search/search_summary.csv results/temporal_snn_search/search_report.md results/temporal_snn_optimized/search_results.json results/temporal_snn_optimized/search_summary.csv results/temporal_snn_optimized/search_report.md results/temporal_snn_optimized/optimization_gate.json results/temporal_snn_optimized/optimization_gate.md results/accuracy/*.json results/vcd/*.vcd sim.out
+	python -c "import pathlib, shutil; [shutil.rmtree(pathlib.Path(p), ignore_errors=True) for p in ('results/sweeps/generated', 'results/sweeps/runs', 'results/snn_search/generated', 'results/snn_search/runs', 'results/temporal_sweeps/generated', 'results/temporal_sweeps/runs', 'results/temporal_snn_search/generated', 'results/temporal_snn_search/runs', 'results/temporal_snn_optimized/generated', 'results/temporal_snn_optimized/runs', 'results/rtl', 'results/smoke')]"

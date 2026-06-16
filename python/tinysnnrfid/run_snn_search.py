@@ -72,6 +72,28 @@ WEIGHT_VARIANTS: dict[str, dict[str, Any]] = {
         ],
         "output_weights": [1, 1, 2, -2, 1, 1],
     },
+    "temporal_gap_guard": {
+        "description": "Ternary-only temporal-hard guard for long gaps and partial-order ambiguity.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [1, 0, 0, -1, 1, 0],
+            [0, 1, 0, -1, 1, -1],
+            [0, 0, 1, -1, 0, 1],
+            [-1, 0, -1, 1, -1, -1],
+        ],
+        "output_weights": [1, 1, 1, -1, 1, 0],
+    },
+    "reversal_inhibitory_guard": {
+        "description": "Small signed integer temporal-hard guard limited to [-2, 2] for reversed and noisy motifs.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [2, -1, 0, -1, 1, 0],
+            [-1, 2, -1, -1, 1, -1],
+            [0, -1, 2, -1, -1, 1],
+            [-2, -1, -2, 2, -2, -1],
+        ],
+        "output_weights": [2, 1, 2, -2, 1, -1],
+    },
 }
 
 DATASET_PARAMETER_PATHS = {

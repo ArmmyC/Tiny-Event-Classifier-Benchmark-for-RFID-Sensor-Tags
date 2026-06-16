@@ -158,6 +158,7 @@ Use the ready-to-run commands:
 make temporal-benchmark
 make temporal-sweep
 make temporal-snn-search
+make temporal-snn-optimize
 ```
 
 `temporal-benchmark` evaluates `configs/temporal_hard.json` once. The temporal
@@ -167,6 +168,16 @@ sweep uses `configs/sweep_temporal_hard.json` and writes under
 `results/temporal_snn_search/`. These workflows use the harder scenario suite;
 the existing `benchmark`, `sweep`, and `snn-search` commands retain the legacy
 default dataset behavior.
+
+`temporal-snn-optimize` is an explicit software-only research branch for asking
+whether `tiny_snn_v2` deserves future SNN RTL work after the initial evidence
+pipeline. It uses `configs/snn_search_temporal_hard_optimized.json`, adds
+temporal-hard fixed-weight variants, writes the larger bounded search under
+`results/temporal_snn_optimized/`, and then writes
+`optimization_gate.json` plus `optimization_gate.md`. The gate recommends
+whether to continue toward an SNN RTL candidate, keep searching in software, or
+prioritize FSM/LUT-like baselines. Software activity remains a proxy only; this
+command does not make hardware power, energy, area, or silicon signoff claims.
 
 ## RTL Baseline Flow
 
