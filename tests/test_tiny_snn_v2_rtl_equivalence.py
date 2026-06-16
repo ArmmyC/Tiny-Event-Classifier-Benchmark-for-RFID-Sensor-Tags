@@ -15,6 +15,10 @@ from tinysnnrfid.classifiers.tiny_snn_v2 import (
 ROOT = Path(__file__).resolve().parents[1]
 INPUT_WEIGHTS = np.asarray(DEFAULT_INPUT_WEIGHTS, dtype=np.int16)
 OUTPUT_WEIGHTS = np.asarray(DEFAULT_OUTPUT_WEIGHTS, dtype=np.int16)
+SNN_RTL_SOURCES = (
+    ROOT / "rtl" / "snn" / "tiny_snn_v2_detector.sv",
+    ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv",
+)
 
 
 def clip(value: int) -> int:
@@ -117,3 +121,23 @@ def test_rtl_source_clips_after_leak_before_adding_drive() -> None:
     assert output_leak in source
     assert output_drive in source
     assert source.index(output_leak) < source.index(output_drive)
+
+
+@pytest.mark.parametrize("source_path", SNN_RTL_SOURCES)
+def test_snn_rtl_initializes_comb_temporaries_before_sample_valid(source_path: Path) -> None:
+    source = source_path.read_text(encoding="utf-8")
+    sample_valid_index = source.index("if (sample_valid) begin")
+    for assignment in (
+        "hidden_value = 0;",
+        "output_value = output_membrane;",
+        "drive = 0;",
+    ):
+        assert assignment in source
+        assert source.index(assignment) < sample_valid_index
+
+
+@pytest.mark.parametrize("source_path", SNN_RTL_SOURCES)
+def test_snn_rtl_does_not_introduce_latch_constructs(source_path: Path) -> None:
+    source = source_path.read_text(encoding="utf-8").lower()
+    assert "always_latch" not in source
+    assert "dlatch" not in source

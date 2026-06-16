@@ -102,6 +102,9 @@ module tiny_snn_v2_detector #(
         int output_value;
         int drive;
 
+        hidden_value = 0;
+        output_value = output_membrane;
+        drive = 0;
         next_output_membrane = output_membrane;
         next_prediction = prediction;
         for (int neuron = 0; neuron < HIDDEN_NEURONS; neuron++) begin
