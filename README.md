@@ -198,12 +198,20 @@ not trainable, not runtime-programmable, and not a final silicon design; it is
 only a small inference prototype for comparing against the simple references.
 
 ```bash
+make rtl-doctor
 make rtl-vectors
 make rtl-sim
 make rtl-synth
 make rtl-activity
 make rtl-report
 ```
+
+Run `make rtl-doctor` first when you want to know whether this machine can
+produce real RTL simulation, synthesis, and VCD activity evidence. It writes
+`results/rtl/toolchain_status.json` and `results/rtl/toolchain_status.md`,
+checking for `bash`, `iverilog`, `vvp`, and `yosys` without installing tools,
+modifying `PATH`, or making network calls. If tools are missing, `make rtl-sim`
+and `make rtl-synth` may skip by design unless their strict mode is enabled.
 
 `rtl-vectors` generates `results/rtl/vectors.svh` from the temporal-hard config
 and includes Python-golden predictions for `threshold`, `fsm`, `lut_like`,
