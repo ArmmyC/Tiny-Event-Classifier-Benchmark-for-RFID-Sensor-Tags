@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search research-report rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report test clean
+.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search research-report rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -44,6 +44,9 @@ rtl-activity:
 
 rtl-report:
 	python python/summarize_rtl_results.py
+
+rtl-compare:
+	python python/compare_rtl_designs.py
 
 test:
 	python -m pytest

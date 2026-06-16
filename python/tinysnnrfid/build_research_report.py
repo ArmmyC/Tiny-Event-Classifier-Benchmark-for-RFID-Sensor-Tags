@@ -15,9 +15,10 @@ EXPECTED_INPUTS = {
     "temporal_sweep": Path("results/temporal_sweeps/sweep_results.json"),
     "temporal_snn_search": Path("results/temporal_snn_search/search_results.json"),
     "rtl_baselines": Path("results/rtl/rtl_summary.json"),
+    "rtl_comparison": Path("results/rtl/rtl_comparison_summary.json"),
 }
 
-OPTIONAL_INPUTS = {"rtl_baselines"}
+OPTIONAL_INPUTS = {"rtl_baselines", "rtl_comparison"}
 
 RECOMMENDATIONS = {
     "continue_snn_optimization",
@@ -63,6 +64,8 @@ def extract_evidence(name: str, payload: dict[str, Any]) -> dict[str, Any]:
         return extract_search_evidence(payload)
     if name == "rtl_baselines":
         return extract_rtl_evidence(payload)
+    if name == "rtl_comparison":
+        return extract_rtl_comparison_evidence(payload)
     return {"kind": "unknown"}
 
 
@@ -73,6 +76,18 @@ def extract_rtl_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "synthesis": payload.get("synthesis", {}),
         "activity": payload.get("activity", {}),
         "recommendation_context": payload.get("recommendation_context", {}),
+        "note": payload.get("note"),
+    }
+
+
+def extract_rtl_comparison_evidence(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "rtl_comparison",
+        "recommendation": payload.get("recommendation"),
+        "reason": payload.get("reason"),
+        "reference_design": payload.get("reference_design"),
+        "designs": payload.get("designs", {}),
+        "tiny_snn_v2_context": payload.get("tiny_snn_v2_context", {}),
         "note": payload.get("note"),
     }
 
@@ -312,6 +327,7 @@ def render_research_report(summary: dict[str, Any]) -> str:
     _append_evidence_section(lines, "Temporal-Hard Sweep Evidence", evidence.get("temporal_sweep"))
     _append_evidence_section(lines, "Temporal-Hard SNN Search Evidence", evidence.get("temporal_snn_search"))
     _append_rtl_evidence_section(lines, evidence.get("rtl_baselines"))
+    _append_rtl_comparison_section(lines, evidence.get("rtl_comparison"))
     lines.extend(["## Scenario-Level Findings", ""])
     scenario_rows = _scenario_findings(evidence)
     if scenario_rows:
@@ -420,6 +436,34 @@ def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) 
         "Cell counts are synthesis proxies, and no measured silicon power is claimed.",
         "",
     ])
+
+
+def _append_rtl_comparison_section(lines: list[str], item: dict[str, Any] | None) -> None:
+    lines.extend(["## RTL SNN-vs-Baseline Comparison", ""])
+    if not item:
+        lines.extend(["- RTL comparison summary not available. Run `make rtl-compare` after generating RTL summaries.", ""])
+        return
+    context = item.get("tiny_snn_v2_context", {})
+    lines.append(f"- Recommendation: `{item.get('recommendation') or 'unknown'}`.")
+    if item.get("reason"):
+        lines.append(f"- Reason: {item['reason']}")
+    lines.append(f"- Reference baseline: `{item.get('reference_design') or 'fsm'}`.")
+    lines.append(f"- `tiny_snn_v2` cell ratio vs FSM: `{_format_optional(context.get('cell_ratio_vs_fsm'))}`.")
+    lines.append(f"- `tiny_snn_v2` toggle ratio vs FSM: `{_format_optional(context.get('toggle_ratio_vs_fsm'))}`.")
+    lines.extend([
+        "",
+        item.get("note")
+        or "Cell counts and toggle counts are local-tool proxies, not silicon area or measured power.",
+        "",
+    ])
+
+
+def _format_optional(value: Any) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, float):
+        return f"{value:.3f}"
+    return str(value)
 
 
 def build_parser() -> argparse.ArgumentParser:

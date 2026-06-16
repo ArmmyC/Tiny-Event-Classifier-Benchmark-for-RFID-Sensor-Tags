@@ -31,6 +31,8 @@ def test_missing_inputs_produce_insufficient_data_and_outputs(tmp_path) -> None:
     assert "Missing inputs:" in report
     assert "## RTL Baseline Evidence" in report
     assert "RTL summary not available" in report
+    assert "## RTL SNN-vs-Baseline Comparison" in report
+    assert "RTL comparison summary not available" in report
     assert "software operation proxies, not hardware power" in report
 
 
@@ -93,6 +95,7 @@ def test_report_extracts_synthetic_inputs_and_writes_sections(tmp_path) -> None:
     write_json(paths["temporal_sweep"], sweep_payload("add_harder_temporal_scenarios", "lut_like"))
     write_json(paths["temporal_snn_search"], search_payload("prioritize_fsm_or_lut_rtl_baseline"))
     write_json(paths["rtl_baselines"], rtl_payload())
+    write_json(paths["rtl_comparison"], rtl_comparison_payload())
     output_dir = tmp_path / "output"
     summary = build_research_report(output_dir, strict=True, input_paths=paths)
     assert summary["recommendation"] == "prioritize_fsm_or_lut_rtl_baseline"
@@ -107,6 +110,7 @@ def test_report_extracts_synthetic_inputs_and_writes_sections(tmp_path) -> None:
         "## Temporal-Hard Sweep Evidence",
         "## Temporal-Hard SNN Search Evidence",
         "## RTL Baseline Evidence",
+        "## RTL SNN-vs-Baseline Comparison",
         "## Scenario-Level Findings",
         "## Decision Matrix",
         "## Notes and Limitations",
@@ -143,6 +147,20 @@ def test_research_report_loads_rtl_summary_when_present(tmp_path) -> None:
     assert "### RTL Activity Context" in report
     assert "not measured silicon power" in report
     assert "not silicon signoff" in report
+
+
+def test_research_report_loads_rtl_comparison_when_present(tmp_path) -> None:
+    paths = input_paths(tmp_path)
+    write_json(paths["rtl_comparison"], rtl_comparison_payload())
+    summary = build_research_report(tmp_path / "output", input_paths=paths)
+    assert summary["inputs"]["rtl_comparison"]["found"] is True
+    comparison = summary["evidence"]["rtl_comparison"]
+    assert comparison["recommendation"] == "continue_snn_rtl_optimization"
+    assert comparison["tiny_snn_v2_context"]["cell_ratio_vs_fsm"] == 1.5
+    report = (tmp_path / "output" / "research_decision_report.md").read_text(encoding="utf-8")
+    assert "## RTL SNN-vs-Baseline Comparison" in report
+    assert "continue_snn_rtl_optimization" in report
+    assert "local-tool proxies" in report
 
 
 def benchmark_payload() -> dict:
@@ -239,4 +257,34 @@ def rtl_payload() -> dict:
         },
         "recommendation_context": {"lowest_cell_count_baseline": "threshold"},
         "note": "Open-source RTL results are not silicon signoff.",
+    }
+
+
+def rtl_comparison_payload() -> dict:
+    return {
+        "reference_design": "fsm",
+        "recommendation": "continue_snn_rtl_optimization",
+        "reason": "synthetic ratios are low",
+        "designs": {
+            "fsm": {
+                "simulation_status": "pass",
+                "cell_count": 100,
+                "total_toggles": 1000,
+                "cell_ratio_vs_fsm": 1.0,
+                "toggle_ratio_vs_fsm": 1.0,
+            },
+            "tiny_snn_v2": {
+                "simulation_status": "pass",
+                "cell_count": 150,
+                "total_toggles": 1600,
+                "cell_ratio_vs_fsm": 1.5,
+                "toggle_ratio_vs_fsm": 1.6,
+            },
+        },
+        "tiny_snn_v2_context": {
+            "simulation_passed": True,
+            "cell_ratio_vs_fsm": 1.5,
+            "toggle_ratio_vs_fsm": 1.6,
+        },
+        "note": "Cell counts and toggle counts are local-tool proxies, not silicon area or measured power.",
     }
