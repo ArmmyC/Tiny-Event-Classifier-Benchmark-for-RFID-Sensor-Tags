@@ -38,7 +38,7 @@ def test_rtl_sources_and_modules_exist() -> None:
     assert "module tiny_snn_v2_sparse_activity_detector" in sparse_text
     for port in ("clk", "rst_n", "start", "sample_valid", "sample_bits", "done", "prediction"):
         assert port in sparse_text
-    for fixed_weight_marker in ("input_weight", "output_weight", "HIDDEN_THRESHOLD", "OUTPUT_THRESHOLD"):
+    for fixed_weight_marker in ("W_C0_N0", "OW_N0", "HIDDEN_THRESHOLD", "OUTPUT_THRESHOLD"):
         assert fixed_weight_marker in sparse_text
 
 
@@ -55,12 +55,13 @@ def test_sparse_activity_rtl_weights_match_search_variant() -> None:
     assert variant["input_weights"] == expected_input_weights
     assert variant["output_weights"] == expected_output_weights
     for channel, row in enumerate(expected_input_weights):
-        assert f"{channel}: begin" in source
         for neuron, weight in enumerate(row):
             if weight:
-                assert f"{neuron}: input_weight = {weight};" in source
+                sign = "-" if weight < 0 else ""
+                assert f"localparam calc_t W_C{channel}_N{neuron} = {sign}5'sd{abs(weight)};" in source
     for neuron, weight in enumerate(expected_output_weights):
-        assert f"{neuron}: output_weight = {weight};" in source
+        sign = "-" if weight < 0 else ""
+        assert f"localparam calc_t OW_N{neuron} = {sign}5'sd{abs(weight)};" in source
 
 
 def test_makefile_and_python_runners_cover_rtl_flow() -> None:
@@ -109,4 +110,3 @@ def test_export_rtl_vectors_for_tiny_config(tmp_path: Path) -> None:
     assert "expected_lut_like[2]" in text
     assert "expected_tiny_snn_v2[2]" in text
     assert "expected_tiny_snn_v2_sparse_activity[2]" in text
-

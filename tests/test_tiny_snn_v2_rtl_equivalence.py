@@ -127,11 +127,10 @@ def test_rtl_source_clips_after_leak_before_adding_drive() -> None:
 def test_snn_rtl_initializes_comb_temporaries_before_sample_valid(source_path: Path) -> None:
     source = source_path.read_text(encoding="utf-8")
     sample_valid_index = source.index("if (sample_valid) begin")
-    for assignment in (
-        "hidden_value = 0;",
-        "output_value = output_membrane;",
-        "drive = 0;",
-    ):
+    required_assignments = ["output_value = output_membrane;", "drive = 0;"]
+    if source_path.name == "tiny_snn_v2_detector.sv":
+        required_assignments.append("hidden_value = 0;")
+    for assignment in required_assignments:
         assert assignment in source
         assert source.index(assignment) < sample_valid_index
 
@@ -141,3 +140,32 @@ def test_snn_rtl_does_not_introduce_latch_constructs(source_path: Path) -> None:
     source = source_path.read_text(encoding="utf-8").lower()
     assert "always_latch" not in source
     assert "dlatch" not in source
+
+
+def test_sparse_snn_rtl_uses_narrow_comb_datapath() -> None:
+    source = (ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv").read_text(encoding="utf-8")
+    comb_block = source[source.index("always_comb begin") : source.index("    always_ff")]
+    assert "typedef logic signed [4:0] calc_t;" in source
+    assert "logic [2:0] hidden_membrane" in source
+    assert "logic [2:0] output_membrane" in source
+    assert "int hidden_value" not in comb_block
+    assert "int output_value" not in comb_block
+    assert "int drive" not in comb_block
+    assert "update = 4'd0;" in comb_block
+    assert comb_block.index("update = 4'd0;") < comb_block.index("if (sample_valid) begin")
+    assert "input_weight" not in source
+    assert "output_weight" not in source
+
+
+def test_sparse_snn_rtl_interface_is_unchanged() -> None:
+    source = (ROOT / "rtl" / "snn" / "tiny_snn_v2_sparse_activity_detector.sv").read_text(encoding="utf-8")
+    for port in (
+        "input  logic                   clk",
+        "input  logic                   rst_n",
+        "input  logic                   start",
+        "input  logic                   sample_valid",
+        "input  logic [INPUT_WIDTH-1:0] sample_bits",
+        "output logic                   done",
+        "output logic                   prediction",
+    ):
+        assert port in source
