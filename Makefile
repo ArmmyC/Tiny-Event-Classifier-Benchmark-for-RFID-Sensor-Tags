@@ -1,4 +1,4 @@
-.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search research-report rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare test clean
+.PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search software-evidence research-report rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare rtl-evidence evidence evidence-manifest test clean
 
 data:
 	python python/generate_dataset.py --config configs/default.json
@@ -27,6 +27,14 @@ temporal-sweep:
 temporal-snn-search:
 	python python/run_snn_search.py --config configs/snn_search_temporal_hard.json
 
+software-evidence:
+	make benchmark
+	make sweep
+	make snn-search
+	make temporal-benchmark
+	make temporal-sweep
+	make temporal-snn-search
+
 research-report:
 	python python/build_research_report.py
 
@@ -47,6 +55,23 @@ rtl-report:
 
 rtl-compare:
 	python python/compare_rtl_designs.py
+
+rtl-evidence:
+	make rtl-vectors
+	make rtl-sim
+	make rtl-synth
+	make rtl-activity
+	make rtl-report
+	make rtl-compare
+
+evidence:
+	make software-evidence
+	make rtl-evidence
+	make research-report
+	make evidence-manifest
+
+evidence-manifest:
+	python python/build_evidence_manifest.py
 
 test:
 	python -m pytest

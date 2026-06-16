@@ -209,6 +209,30 @@ the VCD toggle summary when `rtl_activity_summary.json` is present. The
 consolidated `make research-report` also includes this RTL activity context
 when available.
 
+## Evidence Pipeline
+
+Use the high-level evidence targets when you want a reproducible project
+artifact set without remembering each individual command:
+
+```bash
+make software-evidence
+make rtl-evidence
+make evidence
+make evidence-manifest
+```
+
+`software-evidence` runs the benchmark, sweep, SNN search, temporal benchmark,
+temporal sweep, and temporal SNN search flows. `rtl-evidence` runs RTL vector
+export, optional RTL simulation, optional synthesis, VCD activity summary, RTL
+summary, and RTL comparison. `evidence` runs the software evidence, RTL
+evidence, consolidated research report, and evidence manifest in that order.
+
+`evidence-manifest` inspects the expected generated outputs and writes
+`results/evidence_manifest.json` plus `results/evidence_manifest.md`. The full
+`make evidence` flow can take longer than unit tests. RTL simulation, synthesis,
+and toggle evidence depends on local Icarus Verilog/Yosys availability and is
+not silicon signoff.
+
 ## Initial research stance
 
 The SNN should only be considered interesting if it lands near the Pareto frontier of:
