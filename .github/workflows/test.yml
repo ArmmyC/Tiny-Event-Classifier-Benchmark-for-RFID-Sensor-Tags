@@ -23,5 +23,5 @@ jobs:
       - name: Run tests
         run: make test
 
-      - name: Run experiment sweep
-        run: make sweep
+      - name: Run evidence smoke
+        run: make evidence-smoke

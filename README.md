@@ -219,6 +219,7 @@ make software-evidence
 make rtl-evidence
 make evidence
 make evidence-manifest
+make evidence-smoke
 ```
 
 `software-evidence` runs the benchmark, sweep, SNN search, temporal benchmark,
@@ -226,6 +227,14 @@ temporal sweep, and temporal SNN search flows. `rtl-evidence` runs RTL vector
 export, optional RTL simulation, optional synthesis, VCD activity summary, RTL
 summary, and RTL comparison. `evidence` runs the software evidence, RTL
 evidence, consolidated research report, and evidence manifest in that order.
+
+`evidence-smoke` is the fast wiring check for frequent development and CI. It
+uses tiny datasets plus one-point sweep/search grids, writes under
+`results/smoke/`, exports a small RTL vector set, summarizes missing RTL
+simulation/synthesis outputs without requiring Icarus Verilog or Yosys, and
+builds smoke-local research report and manifest files. Smoke outputs are not
+final benchmark results; run `make evidence` for the full reproducible evidence
+pipeline.
 
 `evidence-manifest` inspects the expected generated outputs and writes
 `results/evidence_manifest.json` plus `results/evidence_manifest.md`. The full
