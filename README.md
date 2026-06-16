@@ -220,6 +220,7 @@ make rtl-evidence
 make evidence
 make evidence-manifest
 make artifact-card
+make research-writeup
 make evidence-smoke
 ```
 
@@ -249,6 +250,13 @@ research recommendation, evidence manifest status, smoke status, and RTL
 SNN-vs-baseline snapshot when those inputs are present. Use the artifact card
 as the first file to inspect; the research report contains the detailed
 evidence and scenario-level context.
+
+`research-writeup` writes `results/research_writeup.md` and
+`results/research_writeup_summary.json`: a paper-style Markdown report generated
+from the artifact card, research decision outputs, RTL comparison outputs, and
+evidence manifest when present. It is intended as a narrative writeup after the
+short artifact card; it still reports proxy limitations and does not claim
+silicon measurements or signoff results.
 
 ## Initial research stance
 
