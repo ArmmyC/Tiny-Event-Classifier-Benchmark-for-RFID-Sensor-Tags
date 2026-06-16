@@ -110,9 +110,9 @@ module tiny_snn_v2_detector #(
         end
 
         if (sample_valid) begin
-            output_value = output_membrane - LEAK;
+            output_value = clip_membrane(output_membrane - LEAK);
             for (int neuron = 0; neuron < HIDDEN_NEURONS; neuron++) begin
-                hidden_value = hidden_membrane[neuron] - LEAK;
+                hidden_value = clip_membrane(hidden_membrane[neuron] - LEAK);
                 drive = 0;
                 for (int channel = 0; channel < INPUT_WIDTH; channel++) begin
                     if (sample_bits[channel]) begin
