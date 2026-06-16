@@ -1,5 +1,3 @@
-MAKE = python -m pymake
-
 .PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search software-evidence research-report research-writeup rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare rtl-evidence evidence evidence-manifest artifact-card evidence-smoke test clean
 
 data:

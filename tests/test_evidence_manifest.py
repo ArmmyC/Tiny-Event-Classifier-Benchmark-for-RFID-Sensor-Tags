@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 from tinysnnrfid.build_evidence_manifest import build_evidence_manifest
 
@@ -39,6 +40,14 @@ def test_recursive_evidence_targets_use_make_macro() -> None:
     assert recursive_lines
     assert all(not line.startswith("\tmake ") for line in recursive_lines)
     assert all(line.startswith("\t$(MAKE) ") for line in recursive_lines)
+
+
+def test_make_macro_is_not_unconditionally_forced_to_pymake() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^MAKE\s*=", makefile) is None
+    conditional_default = "MAKE ?= python -m pymake"
+    if "python -m pymake" in makefile:
+        assert conditional_default in makefile
 
 
 def test_manifest_builder_writes_json_and_markdown(tmp_path) -> None:
