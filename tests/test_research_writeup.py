@@ -106,10 +106,9 @@ def test_makefile_contains_research_writeup_target_and_order() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "research-writeup:" in makefile
     assert "python python/build_research_writeup.py --input-root results --output-dir results" in makefile
-    evidence_index = makefile.index("evidence:")
-    assert makefile.index("$(MAKE) artifact-card", evidence_index) < makefile.index(
-        "$(MAKE) research-writeup", evidence_index
-    )
+    evidence_header = next(line for line in makefile.splitlines() if line.startswith("evidence:"))
+    dependencies = evidence_header.split(":", 1)[1].split()
+    assert dependencies.index("artifact-card") < dependencies.index("research-writeup")
 
 
 def test_clean_removes_research_writeup_outputs() -> None:

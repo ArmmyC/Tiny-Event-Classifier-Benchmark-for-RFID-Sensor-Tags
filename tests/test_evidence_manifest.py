@@ -10,43 +10,71 @@ from tinysnnrfid.build_evidence_manifest import build_evidence_manifest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_makefile_contains_evidence_targets() -> None:
+def _makefile_target_header_and_block(makefile: str, target: str) -> tuple[str, list[str]]:
+    lines = makefile.splitlines()
+    start = next(index for index, line in enumerate(lines) if line.startswith(f"{target}:"))
+    header = lines[start]
+    block: list[str] = []
+    for line in lines[start + 1 :]:
+        if line and not line.startswith(("\t", " ")):
+            break
+        block.append(line)
+    return header, block
+
+
+def _target_dependencies(header: str) -> list[str]:
+    return header.split(":", 1)[1].split()
+
+
+def test_makefile_contains_dependency_only_evidence_targets() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    for target in ("software-evidence:", "rtl-evidence:", "evidence:", "evidence-manifest:"):
+    expected_dependencies = {
+        "software-evidence": [
+            "benchmark",
+            "sweep",
+            "snn-search",
+            "temporal-benchmark",
+            "temporal-sweep",
+            "temporal-snn-search",
+        ],
+        "rtl-evidence": [
+            "rtl-vectors",
+            "rtl-sim",
+            "rtl-synth",
+            "rtl-activity",
+            "rtl-report",
+            "rtl-compare",
+        ],
+        "evidence": [
+            "software-evidence",
+            "rtl-evidence",
+            "research-report",
+            "evidence-manifest",
+            "artifact-card",
+            "research-writeup",
+        ],
+    }
+    for target, dependencies in expected_dependencies.items():
+        header, block = _makefile_target_header_and_block(makefile, target)
+        assert _target_dependencies(header) == dependencies
+        assert all(not line.startswith("\t") for line in block)
+    for target in ("evidence-manifest:", "artifact-card:", "research-writeup:"):
         assert target in makefile
-    evidence_index = makefile.index("evidence:")
-    assert makefile.index("$(MAKE) software-evidence", evidence_index) < makefile.index(
-        "$(MAKE) rtl-evidence", evidence_index
-    )
-    assert makefile.index("$(MAKE) rtl-evidence", evidence_index) < makefile.index(
-        "$(MAKE) research-report", evidence_index
-    )
-    assert makefile.index("$(MAKE) research-report", evidence_index) < makefile.index(
-        "$(MAKE) evidence-manifest", evidence_index
-    )
 
 
-def test_recursive_evidence_targets_use_make_macro() -> None:
+def test_evidence_aggregate_targets_do_not_use_recursive_make() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    recursive_targets = {"software-evidence", "rtl-evidence", "evidence"}
-    current_target = None
-    recursive_lines: list[str] = []
-    for line in makefile.splitlines():
-        if line and not line.startswith(("\t", " ")) and line.endswith(":"):
-            current_target = line[:-1]
-            continue
-        if current_target in recursive_targets and line.startswith("\t"):
-            recursive_lines.append(line)
-    assert recursive_lines
-    assert all(not line.startswith("\tmake ") for line in recursive_lines)
-    assert all(line.startswith("\t$(MAKE) ") for line in recursive_lines)
+    for target in ("software-evidence", "rtl-evidence", "evidence"):
+        _, block = _makefile_target_header_and_block(makefile, target)
+        assert all("$(MAKE)" not in line for line in block)
+        assert all(not line.startswith("\tmake ") for line in block)
+    assert "$(MAKE)" not in makefile
 
 
-def test_make_macro_is_not_unconditionally_forced_to_pymake() -> None:
+def test_make_macro_is_not_forced_to_pymake() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert re.search(r"(?m)^MAKE\s*=", makefile) is None
-    conditional_default = "MAKE ?= python -m pymake"
-    assert conditional_default in makefile
+    assert re.search(r"(?m)^MAKE\s*=\s*python -m pymake\s*$", makefile) is None
+    assert "MAKE ?= python -m pymake" not in makefile
 
 
 def test_manifest_builder_writes_json_and_markdown(tmp_path) -> None:
