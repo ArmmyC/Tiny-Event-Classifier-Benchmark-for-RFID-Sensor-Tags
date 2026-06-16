@@ -18,6 +18,7 @@ run_detector() {
     rtl/baselines/fsm_detector.sv \
     rtl/baselines/lut_like_detector.sv \
     rtl/snn/tiny_snn_v2_detector.sv \
+    rtl/snn/tiny_snn_v2_sparse_activity_detector.sv \
     rtl/tb/tb_baseline_detector.sv
   vvp "${executable}" "+VCD_FILE=results/rtl/vcd_${name}.vcd" | tee "results/rtl/sim_${name}.log"
 }
@@ -26,3 +27,4 @@ run_detector threshold DETECTOR_THRESHOLD
 run_detector fsm DETECTOR_FSM
 run_detector lut_like DETECTOR_LUT_LIKE
 run_detector tiny_snn_v2 DETECTOR_TINY_SNN_V2
+run_detector tiny_snn_v2_sparse_activity DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY

@@ -21,3 +21,4 @@ run_detector threshold threshold_detector rtl/baselines/threshold_detector.sv
 run_detector fsm fsm_detector rtl/baselines/fsm_detector.sv
 run_detector lut_like lut_like_detector rtl/baselines/lut_like_detector.sv
 run_detector tiny_snn_v2 tiny_snn_v2_detector rtl/snn/tiny_snn_v2_detector.sv
+run_detector tiny_snn_v2_sparse_activity tiny_snn_v2_sparse_activity_detector rtl/snn/tiny_snn_v2_sparse_activity_detector.sv

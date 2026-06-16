@@ -206,18 +206,20 @@ make rtl-report
 ```
 
 `rtl-vectors` generates `results/rtl/vectors.svh` from the temporal-hard config
-and includes Python-golden predictions for `threshold`, `fsm`, `lut_like`, and
-`tiny_snn_v2`. Simulation uses Icarus Verilog and synthesis uses Yosys when
-those tools are installed. Missing tools print a clear skip message and return
-success by default; set `STRICT=1` to make either script fail instead. All
-outputs under `results/rtl/` are generated and ignored by Git. Simulation and
-synthesis statistics are local open-source tool proxies, not silicon signoff or
-hardware power measurements.
+and includes Python-golden predictions for `threshold`, `fsm`, `lut_like`,
+`tiny_snn_v2`, and the fixed sparse-activity SNN candidate
+`tiny_snn_v2_sparse_activity`. Simulation uses Icarus Verilog and synthesis
+uses Yosys when those tools are installed. Missing tools print a clear skip
+message and return success by default; set `STRICT=1` to make either script
+fail instead. All outputs under `results/rtl/` are generated and ignored by
+Git. Simulation and synthesis statistics are local open-source tool proxies,
+not silicon signoff or hardware power measurements.
 
 `rtl-sim` passes an optional `+VCD_FILE=...` plusarg to the shared RTL
 testbench and writes one VCD trace per detector when simulation tools are
 available: `vcd_threshold.vcd`, `vcd_fsm.vcd`, `vcd_lut_like.vcd`, and
-`vcd_tiny_snn_v2.vcd`.
+`vcd_tiny_snn_v2.vcd`, plus `vcd_tiny_snn_v2_sparse_activity.vcd` for the
+sparse-activity SNN candidate.
 `rtl-activity` parses any available VCD files without extra dependencies and
 writes `results/rtl/rtl_activity_summary.json` plus
 `results/rtl/rtl_activity_report.md`. Missing VCDs are reported as missing, not

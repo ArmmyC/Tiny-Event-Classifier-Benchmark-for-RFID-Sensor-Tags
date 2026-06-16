@@ -27,6 +27,10 @@ module tb_baseline_detector;
     tiny_snn_v2_detector #(
         .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN)
     ) dut (.*);
+`elsif DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY
+    tiny_snn_v2_sparse_activity_detector #(
+        .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN)
+    ) dut (.*);
 `else
     threshold_detector #(
         .INPUT_WIDTH(RTL_INPUT_WIDTH), .SEQ_LEN(RTL_SEQ_LEN),
@@ -51,6 +55,8 @@ module tb_baseline_detector;
         expected_prediction = expected_lut_like[sample_index];
 `elsif DETECTOR_TINY_SNN_V2
         expected_prediction = expected_tiny_snn_v2[sample_index];
+`elsif DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY
+        expected_prediction = expected_tiny_snn_v2_sparse_activity[sample_index];
 `else
         expected_prediction = expected_threshold[sample_index];
 `endif

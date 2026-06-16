@@ -34,6 +34,7 @@ def test_missing_vcd_files_produce_missing_statuses_and_outputs(tmp_path) -> Non
     summary = summarize_vcd_activity(tmp_path, tmp_path / "out")
     assert all(values["status"] == "missing" for values in summary["baselines"].values())
     assert summary["baselines"]["tiny_snn_v2"]["status"] == "missing"
+    assert summary["baselines"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"
     assert summary["recommendation_context"]["activity_vcd_available"] is False
     assert (tmp_path / "out" / "rtl_activity_summary.json").is_file()
     report = (tmp_path / "out" / "rtl_activity_report.md").read_text(encoding="utf-8")
@@ -65,3 +66,4 @@ def test_activity_summary_selects_lowest_toggle_baseline(tmp_path) -> None:
     assert summary["recommendation_context"]["lowest_toggle_baseline"] == "fsm"
     written = json.loads((tmp_path / "rtl_activity_summary.json").read_text(encoding="utf-8"))
     assert written["baselines"]["lut_like"]["status"] == "missing"
+    assert written["baselines"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"

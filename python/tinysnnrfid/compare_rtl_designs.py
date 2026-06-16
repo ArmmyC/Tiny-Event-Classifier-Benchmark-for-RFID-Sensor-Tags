@@ -8,9 +8,10 @@ import sys
 from typing import Any
 
 
-DESIGNS = ("threshold", "fsm", "lut_like", "tiny_snn_v2")
+DESIGNS = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 REFERENCE_DESIGN = "fsm"
 SNN_DESIGN = "tiny_snn_v2"
+SPARSE_ACTIVITY_DESIGN = "tiny_snn_v2_sparse_activity"
 CONTINUE_RATIO_LIMIT = 2.0
 OPTIMIZE_RATIO_LIMIT = 4.0
 
@@ -99,6 +100,7 @@ def build_comparison_summary(input_dir: str | Path = "results/rtl") -> dict[str,
     rows = build_design_rows(rtl_summary, activity_summary)
     recommendation, reason = choose_recommendation(rows)
     snn = rows[SNN_DESIGN]
+    sparse = rows[SPARSE_ACTIVITY_DESIGN]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "inputs": {
@@ -115,6 +117,13 @@ def build_comparison_summary(input_dir: str | Path = "results/rtl") -> dict[str,
             "toggle_ratio_vs_fsm": snn.get("toggle_ratio_vs_fsm"),
             "cell_count_higher_than_fsm": _is_higher(snn.get("cell_ratio_vs_fsm")),
             "toggle_count_higher_than_fsm": _is_higher(snn.get("toggle_ratio_vs_fsm")),
+        },
+        "tiny_snn_v2_sparse_activity_context": {
+            "simulation_passed": sparse["simulation_status"] == "pass",
+            "cell_ratio_vs_fsm": sparse.get("cell_ratio_vs_fsm"),
+            "toggle_ratio_vs_fsm": sparse.get("toggle_ratio_vs_fsm"),
+            "cell_count_higher_than_fsm": _is_higher(sparse.get("cell_ratio_vs_fsm")),
+            "toggle_count_higher_than_fsm": _is_higher(sparse.get("toggle_ratio_vs_fsm")),
         },
         "note": (
             "Cell counts and toggle counts are local-tool proxies, not silicon area or measured power."
@@ -157,6 +166,7 @@ def render_comparison_report(summary: dict[str, Any]) -> str:
     for name, values in summary["designs"].items():
         lines.append(f"| {name} | {_fmt(values.get('total_toggles'))} | {_fmt(values.get('toggle_ratio_vs_fsm'))} |")
     context = summary["tiny_snn_v2_context"]
+    sparse_context = summary.get("tiny_snn_v2_sparse_activity_context", {})
     lines.extend(
         [
             "",
@@ -166,6 +176,8 @@ def render_comparison_report(summary: dict[str, Any]) -> str:
             f"- Reason: {summary['reason']}",
             f"- `tiny_snn_v2` cell ratio vs FSM: `{_fmt(context.get('cell_ratio_vs_fsm'))}`.",
             f"- `tiny_snn_v2` toggle ratio vs FSM: `{_fmt(context.get('toggle_ratio_vs_fsm'))}`.",
+            f"- `tiny_snn_v2_sparse_activity` cell ratio vs FSM: `{_fmt(sparse_context.get('cell_ratio_vs_fsm'))}`.",
+            f"- `tiny_snn_v2_sparse_activity` toggle ratio vs FSM: `{_fmt(sparse_context.get('toggle_ratio_vs_fsm'))}`.",
             "",
             "## Notes and Limitations",
             "",

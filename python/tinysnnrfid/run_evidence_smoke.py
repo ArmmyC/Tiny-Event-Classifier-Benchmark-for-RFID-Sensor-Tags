@@ -28,14 +28,17 @@ OPTIONAL_RTL_TOOL_OUTPUTS = (
     "rtl/sim_fsm.log",
     "rtl/sim_lut_like.log",
     "rtl/sim_tiny_snn_v2.log",
+    "rtl/sim_tiny_snn_v2_sparse_activity.log",
     "rtl/synth_threshold.json",
     "rtl/synth_fsm.json",
     "rtl/synth_lut_like.json",
     "rtl/synth_tiny_snn_v2.json",
+    "rtl/synth_tiny_snn_v2_sparse_activity.json",
     "rtl/vcd_threshold.vcd",
     "rtl/vcd_fsm.vcd",
     "rtl/vcd_lut_like.vcd",
     "rtl/vcd_tiny_snn_v2.vcd",
+    "rtl/vcd_tiny_snn_v2_sparse_activity.vcd",
 )
 
 SMOKE_EXPECTED_OUTPUTS = (

@@ -17,6 +17,8 @@ def test_missing_inputs_produce_missing_statuses_and_outputs(tmp_path) -> None:
     assert all(values["status"] == "missing" for values in summary["synthesis"].values())
     assert summary["simulations"]["tiny_snn_v2"]["status"] == "missing"
     assert summary["synthesis"]["tiny_snn_v2"]["status"] == "missing"
+    assert summary["simulations"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"
+    assert summary["synthesis"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"
     assert summary["recommendation_context"]["baseline_rtl_available"] is False
     assert (output_dir / "rtl_summary.json").is_file()
     report = (output_dir / "rtl_report.md").read_text(encoding="utf-8")
@@ -43,7 +45,7 @@ def test_yosys_style_json_cell_count_is_parsed(tmp_path) -> None:
 
 
 def test_summary_selects_lowest_cell_count(tmp_path) -> None:
-    for name, count in (("threshold", 4), ("fsm", 2), ("lut_like", 7)):
+    for name, count in (("threshold", 4), ("fsm", 2), ("lut_like", 7), ("tiny_snn_v2_sparse_activity", 9)):
         (tmp_path / f"synth_{name}.json").write_text(json.dumps({"num_cells": count}), encoding="utf-8")
     summary = summarize_rtl_results(tmp_path)
     assert summary["recommendation_context"]["lowest_cell_count_baseline"] == "fsm"
@@ -58,6 +60,7 @@ def test_rtl_report_includes_activity_summary_when_present(tmp_path) -> None:
                     "fsm": {"found": True, "status": "available", "total_toggles": 7},
                     "lut_like": {"found": False, "status": "missing"},
                     "tiny_snn_v2": {"found": False, "status": "missing"},
+                    "tiny_snn_v2_sparse_activity": {"found": False, "status": "missing"},
                 },
                 "recommendation_context": {"lowest_toggle_baseline": "fsm"},
                 "note": "Toggle counts are simulation activity proxies and are not measured silicon power.",
@@ -70,5 +73,6 @@ def test_rtl_report_includes_activity_summary_when_present(tmp_path) -> None:
     report = (tmp_path / "rtl_report.md").read_text(encoding="utf-8")
     assert "## Toggle Activity Summary" in report
     assert "tiny_snn_v2" in report
+    assert "tiny_snn_v2_sparse_activity" in report
     assert "Lowest available toggle-count baseline: `fsm`" in report
     assert "not measured silicon power" in report

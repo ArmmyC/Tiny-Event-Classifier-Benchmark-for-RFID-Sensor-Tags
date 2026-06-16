@@ -27,7 +27,7 @@ RECOMMENDATIONS = {
     "insufficient_data",
 }
 
-RTL_BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2")
+RTL_BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 
 
 def load_research_inputs(
@@ -88,6 +88,7 @@ def extract_rtl_comparison_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "reference_design": payload.get("reference_design"),
         "designs": payload.get("designs", {}),
         "tiny_snn_v2_context": payload.get("tiny_snn_v2_context", {}),
+        "tiny_snn_v2_sparse_activity_context": payload.get("tiny_snn_v2_sparse_activity_context", {}),
         "note": payload.get("note"),
     }
 
@@ -444,12 +445,22 @@ def _append_rtl_comparison_section(lines: list[str], item: dict[str, Any] | None
         lines.extend(["- RTL comparison summary not available. Run `make rtl-compare` after generating RTL summaries.", ""])
         return
     context = item.get("tiny_snn_v2_context", {})
+    sparse_context = item.get("tiny_snn_v2_sparse_activity_context", {})
     lines.append(f"- Recommendation: `{item.get('recommendation') or 'unknown'}`.")
     if item.get("reason"):
         lines.append(f"- Reason: {item['reason']}")
     lines.append(f"- Reference baseline: `{item.get('reference_design') or 'fsm'}`.")
     lines.append(f"- `tiny_snn_v2` cell ratio vs FSM: `{_format_optional(context.get('cell_ratio_vs_fsm'))}`.")
     lines.append(f"- `tiny_snn_v2` toggle ratio vs FSM: `{_format_optional(context.get('toggle_ratio_vs_fsm'))}`.")
+    if sparse_context:
+        lines.append(
+            "- `tiny_snn_v2_sparse_activity` cell ratio vs FSM: "
+            f"`{_format_optional(sparse_context.get('cell_ratio_vs_fsm'))}`."
+        )
+        lines.append(
+            "- `tiny_snn_v2_sparse_activity` toggle ratio vs FSM: "
+            f"`{_format_optional(sparse_context.get('toggle_ratio_vs_fsm'))}`."
+        )
     lines.extend([
         "",
         item.get("note")

@@ -8,7 +8,7 @@ import sys
 from typing import Any
 
 
-BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2")
+BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 
 
 def _clean_signal_name(raw: str) -> str:
