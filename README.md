@@ -219,6 +219,7 @@ make software-evidence
 make rtl-evidence
 make evidence
 make evidence-manifest
+make artifact-card
 make evidence-smoke
 ```
 
@@ -241,6 +242,13 @@ pipeline.
 `make evidence` flow can take longer than unit tests. RTL simulation, synthesis,
 and toggle evidence depends on local Icarus Verilog/Yosys availability and is
 not silicon signoff.
+
+`artifact-card` writes `results/artifact_card.json` and
+`results/artifact_card.md`: a short reviewer-facing entry point summarizing the
+research recommendation, evidence manifest status, smoke status, and RTL
+SNN-vs-baseline snapshot when those inputs are present. Use the artifact card
+as the first file to inspect; the research report contains the detailed
+evidence and scenario-level context.
 
 ## Initial research stance
 
