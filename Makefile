@@ -50,10 +50,10 @@ rtl-vectors:
 	python python/export_rtl_vectors.py --config configs/temporal_hard.json
 
 rtl-sim: rtl-vectors
-	bash scripts/run_rtl_sim.sh
+	python python/run_rtl_sim.py
 
 rtl-synth:
-	bash scripts/run_rtl_synth.sh
+	python python/run_rtl_synth.py
 
 rtl-activity:
 	python python/summarize_vcd_activity.py

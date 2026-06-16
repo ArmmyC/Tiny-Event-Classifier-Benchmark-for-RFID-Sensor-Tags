@@ -110,6 +110,21 @@ def test_outputs_are_written_and_missing_tools_are_clear(tmp_path) -> None:
     assert PROXY_LIMITATION in markdown
 
 
+def test_bash_is_optional_for_required_tool_status(tmp_path) -> None:
+    status = write_toolchain_status(
+        tmp_path,
+        which=_which_factory({"iverilog": "/tools/iverilog", "vvp": "/tools/vvp", "yosys": "/tools/yosys"}),
+        run=_successful_run,
+    )
+
+    assert status["all_required_found"] is True
+    assert status["missing_required_tools"] == []
+    assert status["tools"]["bash"]["found"] is False
+    assert status["tools"]["bash"]["required"] is False
+    markdown = (tmp_path / "toolchain_status.md").read_text(encoding="utf-8")
+    assert "| bash | no | no |" in markdown
+
+
 def test_strict_mode_returns_nonzero_when_tools_are_missing(tmp_path, monkeypatch) -> None:
     import tinysnnrfid.check_rtl_toolchain as doctor
 

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-import shutil
-import subprocess
 
 from tinysnnrfid.export_rtl_vectors import export_rtl_vectors
 from tinysnnrfid.run_snn_search import WEIGHT_VARIANTS
@@ -66,10 +63,14 @@ def test_sparse_activity_rtl_weights_match_search_variant() -> None:
         assert f"{neuron}: output_weight = {weight};" in source
 
 
-def test_makefile_and_scripts_cover_rtl_flow() -> None:
+def test_makefile_and_python_runners_cover_rtl_flow() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     for target in ("rtl-vectors:", "rtl-sim:", "rtl-synth:", "rtl-activity:", "rtl-report:"):
         assert target in makefile
+    assert "\tpython python/run_rtl_sim.py" in makefile
+    assert "\tpython python/run_rtl_synth.py" in makefile
+    assert "bash scripts/run_rtl_sim.sh" not in makefile
+    assert "bash scripts/run_rtl_synth.sh" not in makefile
     assert "results/rtl" in makefile
     tb = (ROOT / "rtl" / "tb" / "tb_baseline_detector.sv").read_text(encoding="utf-8")
     assert "VCD_FILE=%s" in tb
@@ -78,26 +79,18 @@ def test_makefile_and_scripts_cover_rtl_flow() -> None:
     assert "expected_tiny_snn_v2" in tb
     assert "DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY" in tb
     assert "expected_tiny_snn_v2_sparse_activity" in tb
-    sim_script = (ROOT / "scripts" / "run_rtl_sim.sh").read_text(encoding="utf-8")
-    assert "rtl/snn/tiny_snn_v2_detector.sv" in sim_script
-    assert "rtl/snn/tiny_snn_v2_sparse_activity_detector.sv" in sim_script
-    assert "DETECTOR_TINY_SNN_V2" in sim_script
-    assert "DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY" in sim_script
-    assert "sim_${name}.log" in sim_script
-    assert "vcd_${name}.vcd" in sim_script
-    assert "tiny_snn_v2_sparse_activity" in sim_script
-    synth_script = (ROOT / "scripts" / "run_rtl_synth.sh").read_text(encoding="utf-8")
-    assert "rtl/snn/tiny_snn_v2_detector.sv" in synth_script
-    assert "rtl/snn/tiny_snn_v2_sparse_activity_detector.sv" in synth_script
-    assert "synth_${name}.json" in synth_script
-    assert "synth_${name}.log" in synth_script
-    assert "tiny_snn_v2_sparse_activity" in synth_script
-    for filename in ("run_rtl_sim.sh", "run_rtl_synth.sh"):
-        script = ROOT / "scripts" / filename
-        assert script.is_file()
-        text = script.read_text(encoding="utf-8")
-        assert "STRICT" in text
-        assert "exit 0" in text
+    sim_runner = (ROOT / "python" / "tinysnnrfid" / "run_rtl_sim.py").read_text(encoding="utf-8")
+    assert "rtl/snn/tiny_snn_v2_detector.sv" in sim_runner
+    assert "rtl/snn/tiny_snn_v2_sparse_activity_detector.sv" in sim_runner
+    assert "DETECTOR_TINY_SNN_V2" in sim_runner
+    assert "DETECTOR_TINY_SNN_V2_SPARSE_ACTIVITY" in sim_runner
+    assert "sim_{name}.log" in sim_runner
+    assert "vcd_{name}.vcd" in sim_runner
+    synth_runner = (ROOT / "python" / "tinysnnrfid" / "run_rtl_synth.py").read_text(encoding="utf-8")
+    assert "rtl/snn/tiny_snn_v2_detector.sv" in synth_runner
+    assert "rtl/snn/tiny_snn_v2_sparse_activity_detector.sv" in synth_runner
+    assert "synth_{name}.json" in synth_runner
+    assert "synth_{name}.log" in synth_runner
 
 
 def test_export_rtl_vectors_for_tiny_config(tmp_path: Path) -> None:
@@ -117,30 +110,3 @@ def test_export_rtl_vectors_for_tiny_config(tmp_path: Path) -> None:
     assert "expected_tiny_snn_v2[2]" in text
     assert "expected_tiny_snn_v2_sparse_activity[2]" in text
 
-
-def test_scripts_skip_when_tools_are_missing(tmp_path: Path) -> None:
-    bash = shutil.which("bash")
-    if bash is None:
-        return
-    env = {**os.environ, "PATH": str(tmp_path), "STRICT": "0"}
-    for filename in ("run_rtl_sim.sh", "run_rtl_synth.sh"):
-        result = subprocess.run(
-            [bash, f"scripts/{filename}"],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert result.returncode == 0
-        assert "skipped" in result.stdout.lower()
-
-        strict_result = subprocess.run(
-            [bash, "-c", f"STRICT=1 scripts/{filename}"],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert strict_result.returncode != 0

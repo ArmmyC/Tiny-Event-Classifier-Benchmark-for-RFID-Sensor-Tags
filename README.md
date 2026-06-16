@@ -209,18 +209,21 @@ make rtl-report
 Run `make rtl-doctor` first when you want to know whether this machine can
 produce real RTL simulation, synthesis, and VCD activity evidence. It writes
 `results/rtl/toolchain_status.json` and `results/rtl/toolchain_status.md`,
-checking for `bash`, `iverilog`, `vvp`, and `yosys` without installing tools,
-modifying `PATH`, or making network calls. If tools are missing, `make rtl-sim`
-and `make rtl-synth` may skip by design unless their strict mode is enabled.
+checking for `iverilog`, `vvp`, and `yosys` without installing tools, modifying
+`PATH`, or making network calls. It also reports `bash` when present, but Bash
+is optional: `rtl-sim` and `rtl-synth` are Python-driven. If required RTL tools
+are missing, `make rtl-sim` and `make rtl-synth` may skip by design unless
+their strict mode is enabled.
 
 `rtl-vectors` generates `results/rtl/vectors.svh` from the temporal-hard config
 and includes Python-golden predictions for `threshold`, `fsm`, `lut_like`,
 `tiny_snn_v2`, and the fixed sparse-activity SNN candidate
 `tiny_snn_v2_sparse_activity`. Simulation uses Icarus Verilog and synthesis
-uses Yosys when those tools are installed. Missing tools print a clear skip
-message and return success by default; set `STRICT=1` to make either script
-fail instead. All outputs under `results/rtl/` are generated and ignored by
-Git. Simulation and synthesis statistics are local open-source tool proxies,
+uses Yosys when those tools are installed. The RTL sim/synth runners are Python
+entry points and do not require Bash. Missing tools print a clear skip message
+and return success by default; set `STRICT=1` or pass `--strict` to make either
+runner fail instead. All outputs under `results/rtl/` are generated and ignored
+by Git. Simulation and synthesis statistics are local open-source tool proxies,
 not silicon signoff or hardware power measurements.
 
 `rtl-sim` passes an optional `+VCD_FILE=...` plusarg to the shared RTL

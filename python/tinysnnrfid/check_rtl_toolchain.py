@@ -19,23 +19,27 @@ PROXY_LIMITATION = (
 TOOLS: dict[str, dict[str, Any]] = {
     "bash": {
         "version_args": ["--version"],
-        "role": "Runs the repository RTL helper scripts.",
-        "required_for": ["rtl-sim", "rtl-synth"],
+        "role": "Optional shell for legacy RTL helper scripts; not required by the Makefile RTL flow.",
+        "required_for": [],
+        "required": False,
     },
     "iverilog": {
         "version_args": ["-V"],
         "role": "Compiles SystemVerilog testbenches for RTL simulation.",
         "required_for": ["rtl-sim"],
+        "required": True,
     },
     "vvp": {
         "version_args": ["-V"],
         "role": "Runs Icarus Verilog simulation outputs and emits VCD traces.",
         "required_for": ["rtl-sim", "rtl-activity"],
+        "required": True,
     },
     "yosys": {
         "version_args": ["-V"],
         "role": "Runs open-source RTL synthesis for cell-count proxy evidence.",
         "required_for": ["rtl-synth"],
+        "required": True,
     },
 }
 
@@ -67,6 +71,7 @@ def check_tool(
         "version": None,
         "role": metadata["role"],
         "required_for": list(metadata["required_for"]),
+        "required": bool(metadata.get("required", True)),
     }
     if path is None:
         return result
@@ -104,7 +109,7 @@ def collect_toolchain_status(
         name: check_tool(name, metadata, which=which, run=run)
         for name, metadata in TOOLS.items()
     }
-    missing = [name for name, values in tools.items() if not values["found"]]
+    missing = [name for name, values in tools.items() if values["required"] and not values["found"]]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "tools": tools,
@@ -132,16 +137,16 @@ def render_markdown(status: dict[str, Any]) -> str:
             "",
             "## Tool Status",
             "",
-            "| Tool | Found | Path | Version Available | Version | Required For | Role |",
-            "|---|---|---|---|---|---|---|",
+            "| Tool | Required | Found | Path | Version Available | Version | Required For | Role |",
+            "|---|---|---|---|---|---|---|---|",
         ]
     )
     for name, values in status["tools"].items():
         path = values["path"] if values["path"] is not None else "-"
         version = values["version"] if values["version"] is not None else "-"
-        required_for = ", ".join(values["required_for"])
+        required_for = ", ".join(values["required_for"]) or "-"
         lines.append(
-            f"| {name} | {'yes' if values['found'] else 'no'} | `{path}` | "
+            f"| {name} | {'yes' if values['required'] else 'no'} | {'yes' if values['found'] else 'no'} | `{path}` | "
             f"{'yes' if values['version_available'] else 'no'} | {version} | "
             f"{required_for} | {values['role']} |"
         )
