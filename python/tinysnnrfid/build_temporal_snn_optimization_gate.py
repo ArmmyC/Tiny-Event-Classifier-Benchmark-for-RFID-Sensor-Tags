@@ -44,6 +44,36 @@ def _best_candidate_f1(payload: dict[str, Any] | None) -> float | None:
     return max(values) if values else None
 
 
+def _best_candidate_identity(payload: dict[str, Any] | None) -> dict[str, str | None]:
+    if not payload:
+        return {"best_candidate_id": None, "best_weight_variant": None}
+    decision = payload.get("decision", {})
+    candidate_id = decision.get("best_candidate_id")
+    weight_variant = decision.get("best_weight_variant")
+    if isinstance(candidate_id, str) or isinstance(weight_variant, str):
+        return {
+            "best_candidate_id": candidate_id if isinstance(candidate_id, str) else None,
+            "best_weight_variant": weight_variant if isinstance(weight_variant, str) else None,
+        }
+    runs = payload.get("runs", [])
+    if not isinstance(runs, list) or not runs:
+        return {"best_candidate_id": None, "best_weight_variant": None}
+    ranked = sorted(
+        runs,
+        key=lambda run: (
+            float(run.get("comparison", {}).get("candidate_f1") or 0.0),
+            float(run.get("classifiers", {}).get("tiny_snn_v2", {}).get("accuracy") or 0.0),
+            -float(run.get("comparison", {}).get("candidate_activity") or 0.0),
+        ),
+        reverse=True,
+    )
+    best = ranked[0]
+    return {
+        "best_candidate_id": best.get("candidate_id") if isinstance(best.get("candidate_id"), str) else None,
+        "best_weight_variant": best.get("weight_variant") if isinstance(best.get("weight_variant"), str) else None,
+    }
+
+
 def _competitive_count(payload: dict[str, Any] | None) -> int | None:
     if not payload:
         return None
@@ -110,6 +140,8 @@ def build_optimization_gate(
     competitive_count = _competitive_count(payload)
     best_f1 = _best_candidate_f1(payload)
     previous_best_f1 = _best_candidate_f1(previous_payload)
+    optimized_identity = _best_candidate_identity(payload)
+    previous_identity = _best_candidate_identity(previous_payload)
     improved_over_previous = (
         best_f1 is not None and previous_best_f1 is not None and best_f1 > previous_best_f1
     )
@@ -137,12 +169,14 @@ def build_optimization_gate(
         },
         "optimized": {
             "candidate_count": candidate_count,
+            **optimized_identity,
             "best_candidate_f1": best_f1,
             "competitive_candidate_count": competitive_count,
             "f1_win_count": _f1_win_count(payload),
             "activity_win_within_tolerance_count": _activity_win_count(payload),
         },
         "previous": {
+            **previous_identity,
             "best_candidate_f1": previous_best_f1,
             "competitive_candidate_count": _competitive_count(previous_payload),
         },
@@ -182,6 +216,7 @@ def render_optimization_gate(gate: dict[str, Any]) -> str:
         "## Optimized Search Evidence",
         "",
         f"- Candidate count: `{optimized['candidate_count']}`.",
+        f"- Best candidate: `{_fmt(optimized.get('best_candidate_id'))}` using `{_fmt(optimized.get('best_weight_variant'))}`.",
         f"- Best candidate F1: `{_fmt(optimized['best_candidate_f1'])}`.",
         f"- Competitive candidates: `{optimized['competitive_candidate_count']}`.",
         f"- F1 wins: `{optimized['f1_win_count']}`.",
@@ -189,6 +224,7 @@ def render_optimization_gate(gate: dict[str, Any]) -> str:
         "",
         "## Previous Temporal-Hard Context",
         "",
+        f"- Previous best candidate: `{_fmt(previous.get('best_candidate_id'))}` using `{_fmt(previous.get('best_weight_variant'))}`.",
         f"- Previous best candidate F1: `{_fmt(previous['best_candidate_f1'])}`.",
         f"- Previous competitive candidates: `{_fmt(previous['competitive_candidate_count'])}`.",
         f"- Improved over previous: `{gate['improved_over_previous']}`.",

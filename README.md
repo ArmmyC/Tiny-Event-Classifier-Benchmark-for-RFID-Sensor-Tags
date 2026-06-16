@@ -159,6 +159,7 @@ make temporal-benchmark
 make temporal-sweep
 make temporal-snn-search
 make temporal-snn-optimize
+make temporal-snn-v2-search
 ```
 
 `temporal-benchmark` evaluates `configs/temporal_hard.json` once. The temporal
@@ -178,6 +179,15 @@ temporal-hard fixed-weight variants, writes the larger bounded search under
 whether to continue toward an SNN RTL candidate, keep searching in software, or
 prioritize FSM/LUT-like baselines. Software activity remains a proxy only; this
 command does not make hardware power, energy, area, or silicon signoff claims.
+
+`temporal-snn-v2-search` is a second software-only temporal-hard branch that
+should be run after `make temporal-snn-optimize` or after optimized search
+outputs already exist. It focuses on fixed-weight variants derived from
+`current_default`, writes under `results/temporal_snn_v2_search/`, and reuses
+the optimization gate to compare against
+`results/temporal_snn_optimized/search_results.json`. It is still a bounded
+hand-defined search, not training, and it remains outside the default
+`make evidence` pipeline until the software evidence justifies further work.
 
 ## RTL Baseline Flow
 

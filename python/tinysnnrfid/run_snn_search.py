@@ -94,6 +94,50 @@ WEIGHT_VARIANTS: dict[str, dict[str, Any]] = {
         ],
         "output_weights": [2, 1, 2, -2, 1, -1],
     },
+    "current_default_gap_tuned": {
+        "description": "Current-default-derived weights with slightly stronger event-order support for long temporal gaps.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [4, 0, 0, -1, 4, 0],
+            [0, 3, 0, -1, 4, 2],
+            [0, 0, 4, -1, 0, 4],
+            [-1, -1, -1, 7, -2, -2],
+        ],
+        "output_weights": [-2, 1, 1, -3, 2, 2],
+    },
+    "current_default_output_rebalanced": {
+        "description": "Current-default-derived weights with reduced inhibitory output magnitude and rebalanced positive drive.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [4, 0, 0, -1, 3, 0],
+            [0, 3, 0, -1, 3, 3],
+            [0, 0, 4, -1, 0, 3],
+            [-1, -1, -1, 7, -2, -2],
+        ],
+        "output_weights": [-1, 1, 1, -2, 2, 1],
+    },
+    "current_default_noise_inhibited": {
+        "description": "Current-default-derived weights with stronger channel-3 inhibition for burst and reversed negatives.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [4, 0, 0, -2, 3, 0],
+            [0, 3, 0, -2, 3, 3],
+            [0, 0, 4, -2, 0, 3],
+            [-2, -2, -2, 8, -3, -3],
+        ],
+        "output_weights": [-2, 0, 1, -4, 2, 2],
+    },
+    "current_default_sparse_activity": {
+        "description": "Current-default-derived sparse-output variant intended to reduce software activity proxy pressure.",
+        "hidden_neurons": 6,
+        "input_weights": [
+            [4, 0, 0, -1, 2, 0],
+            [0, 3, 0, -1, 2, 2],
+            [0, 0, 4, -1, 0, 2],
+            [-1, -1, -1, 6, -1, -1],
+        ],
+        "output_weights": [-1, 0, 1, -2, 1, 1],
+    },
 }
 
 DATASET_PARAMETER_PATHS = {

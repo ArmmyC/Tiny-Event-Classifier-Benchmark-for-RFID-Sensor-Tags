@@ -1,0 +1,39 @@
+{
+  "name": "temporal_hard_snn_v2_search",
+  "base_config": "configs/temporal_hard.json",
+  "output_dir": "results/temporal_snn_v2_search",
+  "dataset_output_root": "results/temporal_snn_v2_search/generated",
+  "seeds": [2026, 2027, 2028, 2029],
+  "dataset_overrides": {
+    "dataset.num_samples": 240
+  },
+  "dataset_parameters": {
+    "dataset.noise_probability": [0.0, 0.02, 0.06],
+    "dataset.jitter_probability": [0.0, 0.1],
+    "dataset.dropout_probability": [0.0]
+  },
+  "snn_parameters": {
+    "classifiers.tiny_snn_v2.hidden_threshold": [3, 4, 5],
+    "classifiers.tiny_snn_v2.output_threshold": [2, 3, 4],
+    "classifiers.tiny_snn_v2.leak": [0, 1],
+    "classifiers.tiny_snn_v2.reset_on_spike": [true, false]
+  },
+  "weight_variants": [
+    "current_default",
+    "current_default_gap_tuned",
+    "current_default_output_rebalanced",
+    "current_default_noise_inhibited",
+    "current_default_sparse_activity"
+  ],
+  "comparison": {
+    "reference_classifier": "fsm",
+    "candidate_classifier": "tiny_snn_v2",
+    "f1_tolerance": 0.03
+  },
+  "selection": {
+    "strategy": "balanced_round_robin"
+  },
+  "limits": {
+    "max_candidates": 160
+  }
+}
