@@ -107,8 +107,8 @@ def test_makefile_contains_research_writeup_target_and_order() -> None:
     assert "research-writeup:" in makefile
     assert "python python/build_research_writeup.py --input-root results --output-dir results" in makefile
     evidence_index = makefile.index("evidence:")
-    assert makefile.index("make artifact-card", evidence_index) < makefile.index(
-        "make research-writeup", evidence_index
+    assert makefile.index("$(MAKE) artifact-card", evidence_index) < makefile.index(
+        "$(MAKE) research-writeup", evidence_index
     )
 
 

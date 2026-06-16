@@ -108,8 +108,8 @@ def test_makefile_contains_artifact_card_target_and_order() -> None:
     assert "artifact-card:" in makefile
     assert "python python/build_artifact_card.py --input-root results --output-dir results" in makefile
     evidence_index = makefile.index("evidence:")
-    assert makefile.index("make evidence-manifest", evidence_index) < makefile.index(
-        "make artifact-card", evidence_index
+    assert makefile.index("$(MAKE) evidence-manifest", evidence_index) < makefile.index(
+        "$(MAKE) artifact-card", evidence_index
     )
 
 

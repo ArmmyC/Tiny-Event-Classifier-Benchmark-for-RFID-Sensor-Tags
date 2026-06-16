@@ -14,15 +14,31 @@ def test_makefile_contains_evidence_targets() -> None:
     for target in ("software-evidence:", "rtl-evidence:", "evidence:", "evidence-manifest:"):
         assert target in makefile
     evidence_index = makefile.index("evidence:")
-    assert makefile.index("make software-evidence", evidence_index) < makefile.index(
-        "make rtl-evidence", evidence_index
+    assert makefile.index("$(MAKE) software-evidence", evidence_index) < makefile.index(
+        "$(MAKE) rtl-evidence", evidence_index
     )
-    assert makefile.index("make rtl-evidence", evidence_index) < makefile.index(
-        "make research-report", evidence_index
+    assert makefile.index("$(MAKE) rtl-evidence", evidence_index) < makefile.index(
+        "$(MAKE) research-report", evidence_index
     )
-    assert makefile.index("make research-report", evidence_index) < makefile.index(
-        "make evidence-manifest", evidence_index
+    assert makefile.index("$(MAKE) research-report", evidence_index) < makefile.index(
+        "$(MAKE) evidence-manifest", evidence_index
     )
+
+
+def test_recursive_evidence_targets_use_make_macro() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    recursive_targets = {"software-evidence", "rtl-evidence", "evidence"}
+    current_target = None
+    recursive_lines: list[str] = []
+    for line in makefile.splitlines():
+        if line and not line.startswith(("\t", " ")) and line.endswith(":"):
+            current_target = line[:-1]
+            continue
+        if current_target in recursive_targets and line.startswith("\t"):
+            recursive_lines.append(line)
+    assert recursive_lines
+    assert all(not line.startswith("\tmake ") for line in recursive_lines)
+    assert all(line.startswith("\t$(MAKE) ") for line in recursive_lines)
 
 
 def test_manifest_builder_writes_json_and_markdown(tmp_path) -> None:

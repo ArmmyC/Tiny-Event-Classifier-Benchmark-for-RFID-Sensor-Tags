@@ -1,3 +1,5 @@
+MAKE = python -m pymake
+
 .PHONY: data eval benchmark sweep snn-search temporal-benchmark temporal-sweep temporal-snn-search software-evidence research-report research-writeup rtl-vectors rtl-sim rtl-synth rtl-activity rtl-report rtl-compare rtl-evidence evidence evidence-manifest artifact-card evidence-smoke test clean
 
 data:
@@ -28,12 +30,12 @@ temporal-snn-search:
 	python python/run_snn_search.py --config configs/snn_search_temporal_hard.json
 
 software-evidence:
-	make benchmark
-	make sweep
-	make snn-search
-	make temporal-benchmark
-	make temporal-sweep
-	make temporal-snn-search
+	$(MAKE) benchmark
+	$(MAKE) sweep
+	$(MAKE) snn-search
+	$(MAKE) temporal-benchmark
+	$(MAKE) temporal-sweep
+	$(MAKE) temporal-snn-search
 
 research-report:
 	python python/build_research_report.py
@@ -60,20 +62,20 @@ rtl-compare:
 	python python/compare_rtl_designs.py
 
 rtl-evidence:
-	make rtl-vectors
-	make rtl-sim
-	make rtl-synth
-	make rtl-activity
-	make rtl-report
-	make rtl-compare
+	$(MAKE) rtl-vectors
+	$(MAKE) rtl-sim
+	$(MAKE) rtl-synth
+	$(MAKE) rtl-activity
+	$(MAKE) rtl-report
+	$(MAKE) rtl-compare
 
 evidence:
-	make software-evidence
-	make rtl-evidence
-	make research-report
-	make evidence-manifest
-	make artifact-card
-	make research-writeup
+	$(MAKE) software-evidence
+	$(MAKE) rtl-evidence
+	$(MAKE) research-report
+	$(MAKE) evidence-manifest
+	$(MAKE) artifact-card
+	$(MAKE) research-writeup
 
 evidence-manifest:
 	python python/build_evidence_manifest.py
