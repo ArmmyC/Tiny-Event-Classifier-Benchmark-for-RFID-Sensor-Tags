@@ -40,6 +40,11 @@ def _combined_output(completed: subprocess.CompletedProcess[str]) -> str:
     return "".join(part for part in (completed.stdout, completed.stderr) if part)
 
 
+def _remove_stale_outputs(paths: tuple[Path, ...]) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+
 def run_rtl_sim(
     output_dir: str | Path = "results/rtl",
     *,
@@ -79,6 +84,7 @@ def run_rtl_sim(
         executable = output_path / f"sim_{name}.out"
         log_path = output_path / f"sim_{name}.log"
         vcd_path = output_path / f"vcd_{name}.vcd"
+        _remove_stale_outputs((executable, log_path, vcd_path))
         compile_command = [
             iverilog,
             "-g2012",
@@ -100,6 +106,8 @@ def run_rtl_sim(
             print(compile_output, end="")
             status = compiled.returncode or 1
             continue
+        if executable.is_file():
+            outputs_written.setdefault(name, []).append(executable.name)
 
         sim_command = [vvp, str(executable), f"+VCD_FILE={vcd_path}"]
         simulated = run(sim_command, capture_output=True, text=True, check=False)
@@ -109,6 +117,8 @@ def run_rtl_sim(
         outputs_written.setdefault(name, []).append(log_path.name)
         if vcd_path.is_file():
             outputs_written.setdefault(name, []).append(vcd_path.name)
+        elif simulated.returncode == 0:
+            status = 1
         print(sim_output, end="")
         if simulated.returncode != 0:
             status = simulated.returncode
@@ -123,7 +133,10 @@ def run_rtl_sim(
         note=(
             "RTL simulation completed in the current run."
             if status == 0
-            else "RTL simulation failed in the current run; only outputs listed here are current."
+            else (
+                "RTL simulation failed or was incomplete in the current run; "
+                "only outputs listed here are current."
+            )
         ),
     )
     return status

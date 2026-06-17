@@ -35,6 +35,11 @@ def _combined_output(completed: subprocess.CompletedProcess[str]) -> str:
     return "".join(part for part in (completed.stdout, completed.stderr) if part)
 
 
+def _remove_stale_outputs(paths: tuple[Path, ...]) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+
 def _techmap_command(yosys_path: str) -> str:
     bundled_techmap = Path(yosys_path).parent.parent / "share" / "yosys" / "techmap.v"
     if bundled_techmap.is_file():
@@ -97,6 +102,7 @@ def run_rtl_synth(
     for name, top, source in DESIGNS:
         json_path = output_path / f"synth_{name}.json"
         log_path = output_path / f"synth_{name}.log"
+        _remove_stale_outputs((json_path, log_path))
         command = [yosys, "-q", "-p", _yosys_script(source, top, json_path, yosys)]
         completed = run(command, capture_output=True, text=True, check=False, env=env)
         output = _combined_output(completed)
@@ -105,6 +111,8 @@ def run_rtl_synth(
         outputs_written.setdefault(name, []).append(log_path.name)
         if json_path.is_file():
             outputs_written.setdefault(name, []).append(json_path.name)
+        elif completed.returncode == 0:
+            status = 1
         print(output, end="")
         if completed.returncode != 0:
             status = completed.returncode
@@ -119,7 +127,10 @@ def run_rtl_synth(
         note=(
             "RTL synthesis completed in the current run."
             if status == 0
-            else "RTL synthesis failed in the current run; only outputs listed here are current."
+            else (
+                "RTL synthesis failed or was incomplete in the current run; "
+                "only outputs listed here are current."
+            )
         ),
     )
     return status

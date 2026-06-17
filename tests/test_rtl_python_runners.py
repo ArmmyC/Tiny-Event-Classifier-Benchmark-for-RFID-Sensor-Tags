@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+from pathlib import Path
 import subprocess
 
 from tinysnnrfid.run_rtl_sim import DESIGNS as SIM_DESIGNS
@@ -9,6 +10,8 @@ from tinysnnrfid.run_rtl_sim import run_rtl_sim
 from tinysnnrfid.run_rtl_synth import DESIGNS as SYNTH_DESIGNS
 from tinysnnrfid.run_rtl_synth import run_rtl_synth
 from tinysnnrfid.run_rtl_synth import yosys_environment
+from tinysnnrfid.summarize_rtl_results import summarize_rtl_results
+from tinysnnrfid.summarize_vcd_activity import summarize_vcd_activity
 
 
 def _which_factory(paths: dict[str, str]):
@@ -48,7 +51,10 @@ def test_rtl_sim_runs_all_designs_and_writes_logs(tmp_path) -> None:
     def run(command, **kwargs):
         commands.append(command)
         if command[0] == "/tools/iverilog":
+            Path(command[command.index("-o") + 1]).write_text("compiled\n", encoding="utf-8")
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        vcd_arg = next(arg for arg in command if str(arg).startswith("+VCD_FILE="))
+        Path(vcd_arg.split("=", 1)[1]).write_text("$enddefinitions $end\n", encoding="utf-8")
         return subprocess.CompletedProcess(command, 0, stdout="5 passed, 0 failed\n", stderr="")
 
     result = run_rtl_sim(
@@ -67,6 +73,36 @@ def test_rtl_sim_runs_all_designs_and_writes_logs(tmp_path) -> None:
     status = json.loads((tmp_path / "sim_status.json").read_text(encoding="utf-8"))
     assert status["status"] == "pass"
     assert set(status["return_codes"]) == {name for name, _define in SIM_DESIGNS}
+    assert "vcd_tiny_snn_v2_sparse_activity.vcd" in status["outputs_written"]["tiny_snn_v2_sparse_activity"]
+    activity = summarize_vcd_activity(tmp_path)
+    assert activity["baselines"]["tiny_snn_v2_sparse_activity"]["status"] == "available"
+
+
+def test_rtl_sim_does_not_whitelist_old_vcd_when_vvp_does_not_recreate_it(tmp_path) -> None:
+    old_vcd = tmp_path / "vcd_tiny_snn_v2_sparse_activity.vcd"
+    old_vcd.write_text("old stale vcd\n", encoding="utf-8")
+
+    def run(command, **kwargs):
+        if command[0] == "/tools/iverilog":
+            Path(command[command.index("-o") + 1]).write_text("compiled\n", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="5 passed, 0 failed\n", stderr="")
+
+    result = run_rtl_sim(
+        tmp_path,
+        which=_which_factory({"iverilog": "/tools/iverilog", "vvp": "/tools/vvp"}),
+        run=run,
+    )
+
+    status = json.loads((tmp_path / "sim_status.json").read_text(encoding="utf-8"))
+    sparse_outputs = status["outputs_written"]["tiny_snn_v2_sparse_activity"]
+    assert result == 1
+    assert status["status"] == "fail"
+    assert "vcd_tiny_snn_v2_sparse_activity.vcd" not in sparse_outputs
+    assert not old_vcd.exists()
+    activity = summarize_vcd_activity(tmp_path)
+    assert activity["baselines"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"
+    assert "total_toggles" not in activity["baselines"]["tiny_snn_v2_sparse_activity"]
 
 
 def test_rtl_synth_skips_by_default_when_yosys_is_missing(tmp_path, capsys) -> None:
@@ -100,6 +136,8 @@ def test_rtl_synth_runs_all_designs_and_writes_logs(tmp_path) -> None:
     def run(command, **kwargs):
         commands.append(command)
         envs.append(kwargs.get("env"))
+        json_path = Path(command[-1].rsplit("write_json ", 1)[1])
+        json_path.write_text(json.dumps({"num_cells": 3}), encoding="utf-8")
         return subprocess.CompletedProcess(command, 0, stdout="synth ok\n", stderr="")
 
     result = run_rtl_synth(tmp_path, which=_which_factory({"yosys": "/tools/yosys"}), run=run)
@@ -116,6 +154,29 @@ def test_rtl_synth_runs_all_designs_and_writes_logs(tmp_path) -> None:
     status = json.loads((tmp_path / "synth_status.json").read_text(encoding="utf-8"))
     assert status["status"] == "pass"
     assert set(status["return_codes"]) == {name for name, _top, _source in SYNTH_DESIGNS}
+    assert "synth_tiny_snn_v2_sparse_activity.json" in status["outputs_written"]["tiny_snn_v2_sparse_activity"]
+    summary = summarize_rtl_results(tmp_path)
+    assert summary["synthesis"]["tiny_snn_v2_sparse_activity"]["cell_count"] == 3
+
+
+def test_rtl_synth_does_not_whitelist_old_json_when_yosys_does_not_recreate_it(tmp_path) -> None:
+    old_json = tmp_path / "synth_tiny_snn_v2_sparse_activity.json"
+    old_json.write_text(json.dumps({"num_cells": 610}), encoding="utf-8")
+
+    def run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 0, stdout="synth ok\n", stderr="")
+
+    result = run_rtl_synth(tmp_path, which=_which_factory({"yosys": "/tools/yosys"}), run=run)
+
+    status = json.loads((tmp_path / "synth_status.json").read_text(encoding="utf-8"))
+    sparse_outputs = status["outputs_written"]["tiny_snn_v2_sparse_activity"]
+    assert result == 1
+    assert status["status"] == "fail"
+    assert "synth_tiny_snn_v2_sparse_activity.json" not in sparse_outputs
+    assert not old_json.exists()
+    summary = summarize_rtl_results(tmp_path)
+    assert summary["synthesis"]["tiny_snn_v2_sparse_activity"]["status"] == "missing"
+    assert "cell_count" not in summary["synthesis"]["tiny_snn_v2_sparse_activity"]
 
 
 def test_yosys_environment_sets_datdir_for_oss_cad_suite_layout(tmp_path) -> None:
@@ -140,6 +201,8 @@ def test_rtl_synth_uses_bundled_techmap_when_available(tmp_path) -> None:
 
     def run(command, **kwargs):
         commands.append(command)
+        json_path = Path(command[-1].rsplit("write_json ", 1)[1])
+        json_path.write_text(json.dumps({"num_cells": 3}), encoding="utf-8")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     assert run_rtl_synth(tmp_path / "out", which=_which_factory({"yosys": str(yosys)}), run=run) == 0
