@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tinysnnrfid.export_rtl_vectors import export_rtl_vectors
+from tinysnnrfid.clean_outputs import DIRECTORIES
 from tinysnnrfid.run_snn_search import WEIGHT_VARIANTS
 
 
@@ -72,7 +73,7 @@ def test_makefile_and_python_runners_cover_rtl_flow() -> None:
     assert "\tpython python/run_rtl_synth.py" in makefile
     assert "bash scripts/run_rtl_sim.sh" not in makefile
     assert "bash scripts/run_rtl_synth.sh" not in makefile
-    assert "results/rtl" in makefile
+    assert "results/rtl" in DIRECTORIES
     tb = (ROOT / "rtl" / "tb" / "tb_baseline_detector.sv").read_text(encoding="utf-8")
     assert "VCD_FILE=%s" in tb
     assert "$dumpvars" in tb

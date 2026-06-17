@@ -8,6 +8,7 @@ from tinysnnrfid.build_temporal_snn_optimization_gate import (
     build_optimization_gate,
     render_optimization_gate,
 )
+from tinysnnrfid.clean_outputs import DIRECTORIES, FILE_PATTERNS
 from tinysnnrfid.config import load_config
 from tinysnnrfid.run_snn_search import WEIGHT_VARIANTS, load_search_config
 
@@ -240,28 +241,32 @@ def test_makefile_contains_temporal_snn_v2_search_without_evidence_integration()
 
 
 def test_clean_removes_temporal_snn_optimized_outputs() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     for path in (
         "results/temporal_snn_optimized/search_results.json",
         "results/temporal_snn_optimized/search_summary.csv",
         "results/temporal_snn_optimized/search_report.md",
         "results/temporal_snn_optimized/optimization_gate.json",
         "results/temporal_snn_optimized/optimization_gate.md",
+    ):
+        assert path in FILE_PATTERNS
+    for path in (
         "results/temporal_snn_optimized/generated",
         "results/temporal_snn_optimized/runs",
     ):
-        assert path in makefile
+        assert path in DIRECTORIES
 
 
 def test_clean_removes_temporal_snn_v2_search_outputs() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     for path in (
         "results/temporal_snn_v2_search/search_results.json",
         "results/temporal_snn_v2_search/search_summary.csv",
         "results/temporal_snn_v2_search/search_report.md",
         "results/temporal_snn_v2_search/optimization_gate.json",
         "results/temporal_snn_v2_search/optimization_gate.md",
+    ):
+        assert path in FILE_PATTERNS
+    for path in (
         "results/temporal_snn_v2_search/generated",
         "results/temporal_snn_v2_search/runs",
     ):
-        assert path in makefile
+        assert path in DIRECTORIES

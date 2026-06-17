@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tinysnnrfid.run_evidence_smoke import run_evidence_smoke
+from tinysnnrfid.clean_outputs import DIRECTORIES, FILE_PATTERNS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,9 +14,9 @@ def test_makefile_contains_evidence_smoke_and_cleanup() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "evidence-smoke:" in makefile
     assert "python python/run_evidence_smoke.py" in makefile
-    assert "results/evidence_manifest.json" in makefile
-    assert "results/evidence_manifest.md" in makefile
-    assert "results/smoke" in makefile
+    assert "results/evidence_manifest.json" in FILE_PATTERNS
+    assert "results/evidence_manifest.md" in FILE_PATTERNS
+    assert "results/smoke" in DIRECTORIES
 
 
 def test_ci_runs_evidence_smoke_after_tests_when_present() -> None:

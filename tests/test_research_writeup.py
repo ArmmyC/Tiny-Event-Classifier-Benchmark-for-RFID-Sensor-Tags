@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tinysnnrfid.build_research_writeup import SECTIONS, build_research_writeup
+from tinysnnrfid.clean_outputs import FILE_PATTERNS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +113,5 @@ def test_makefile_contains_research_writeup_target_and_order() -> None:
 
 
 def test_clean_removes_research_writeup_outputs() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert "results/research_writeup.md" in makefile
-    assert "results/research_writeup_summary.json" in makefile
+    assert "results/research_writeup.md" in FILE_PATTERNS
+    assert "results/research_writeup_summary.json" in FILE_PATTERNS

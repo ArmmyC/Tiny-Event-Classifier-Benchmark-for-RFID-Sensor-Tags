@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tinysnnrfid.build_artifact_card import build_artifact_card
+from tinysnnrfid.clean_outputs import FILE_PATTERNS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -113,6 +114,5 @@ def test_makefile_contains_artifact_card_target_and_order() -> None:
 
 
 def test_clean_removes_artifact_card_outputs() -> None:
-    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert "results/artifact_card.json" in makefile
-    assert "results/artifact_card.md" in makefile
+    assert "results/artifact_card.json" in FILE_PATTERNS
+    assert "results/artifact_card.md" in FILE_PATTERNS
