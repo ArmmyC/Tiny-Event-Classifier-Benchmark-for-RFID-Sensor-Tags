@@ -13,6 +13,10 @@ def write_json(path, payload: dict) -> None:
 
 def rtl_summary(snn_cells: int, fsm_cells: int = 100, sparse_cells: int = 120) -> dict:
     return {
+        "status": {
+            "simulation": {"status": "pass", "note": "sim current"},
+            "synthesis": {"status": "pass", "note": "synth current"},
+        },
         "simulations": {
             "threshold": {"found": True, "status": "pass"},
             "fsm": {"found": True, "status": "pass"},
@@ -36,6 +40,9 @@ def rtl_summary(snn_cells: int, fsm_cells: int = 100, sparse_cells: int = 120) -
 
 def activity_summary(snn_toggles: int, fsm_toggles: int = 1000, sparse_toggles: int = 1100) -> dict:
     return {
+        "status": {
+            "simulation": {"status": "pass", "note": "vcd current"},
+        },
         "baselines": {
             "threshold": {"found": True, "status": "available", "total_toggles": 800},
             "fsm": {"found": True, "status": "available", "total_toggles": fsm_toggles},
@@ -124,6 +131,33 @@ def test_sparse_candidate_nonpassing_simulation_is_insufficient_data(tmp_path) -
     assert "tiny_snn_v2_sparse_activity simulation" in summary["reason"]
 
 
+def test_skipped_current_rtl_status_blocks_stale_comparison_data(tmp_path) -> None:
+    payload = rtl_summary(450, sparse_cells=150)
+    payload["status"]["simulation"] = {
+        "status": "skipped",
+        "missing_tools": ["iverilog", "vvp"],
+        "note": "RTL simulation was skipped; previous sim logs were ignored as stale.",
+    }
+    payload["status"]["synthesis"] = {
+        "status": "skipped",
+        "missing_tools": ["yosys"],
+        "note": "RTL synthesis was skipped; previous synth JSON files were ignored as stale.",
+    }
+    activity = activity_summary(5000, sparse_toggles=1600)
+    activity["status"]["simulation"] = payload["status"]["simulation"]
+    write_json(tmp_path / "rtl_summary.json", payload)
+    write_json(tmp_path / "rtl_activity_summary.json", activity)
+
+    summary = compare_rtl_designs(tmp_path)
+
+    assert summary["recommendation"] == "insufficient_rtl_data"
+    assert summary["designs"]["tiny_snn_v2_sparse_activity"]["simulation_status"] == "stale"
+    assert summary["designs"]["tiny_snn_v2_sparse_activity"]["cell_count"] is None
+    assert summary["designs"]["tiny_snn_v2_sparse_activity"]["total_toggles"] is None
+    report = (tmp_path / "rtl_comparison_report.md").read_text(encoding="utf-8")
+    assert "ignored as stale" in report
+
+
 def test_research_report_shows_sparse_candidate_design(tmp_path) -> None:
     input_dir = tmp_path / "rtl"
     write_inputs(input_dir, snn_cells=450, snn_toggles=5000, sparse_cells=150, sparse_toggles=1600)
@@ -143,3 +177,38 @@ def test_research_report_shows_sparse_candidate_design(tmp_path) -> None:
     report = (tmp_path / "report" / "research_decision_report.md").read_text(encoding="utf-8")
     assert "Candidate design: `tiny_snn_v2_sparse_activity`" in report
     assert "Legacy/default SNN context: `tiny_snn_v2`" in report
+
+
+def test_research_report_mentions_skipped_stale_rtl_evidence(tmp_path) -> None:
+    input_dir = tmp_path / "rtl"
+    payload = rtl_summary(450, sparse_cells=150)
+    payload["status"]["simulation"] = {
+        "status": "skipped",
+        "missing_tools": ["iverilog", "vvp"],
+        "note": "RTL simulation was skipped; previous sim logs were ignored as stale.",
+    }
+    payload["status"]["synthesis"] = {
+        "status": "skipped",
+        "missing_tools": ["yosys"],
+        "note": "RTL synthesis was skipped; previous synth JSON files were ignored as stale.",
+    }
+    activity = activity_summary(5000, sparse_toggles=1600)
+    activity["status"]["simulation"] = payload["status"]["simulation"]
+    write_json(input_dir / "rtl_summary.json", payload)
+    write_json(input_dir / "rtl_activity_summary.json", activity)
+    compare_rtl_designs(input_dir)
+    paths = {
+        "legacy_benchmark": tmp_path / "missing_benchmark.json",
+        "legacy_sweep": tmp_path / "missing_sweep.json",
+        "legacy_snn_search": tmp_path / "missing_search.json",
+        "temporal_sweep": tmp_path / "missing_temporal_sweep.json",
+        "temporal_snn_search": tmp_path / "missing_temporal_search.json",
+        "rtl_baselines": input_dir / "rtl_summary.json",
+        "rtl_comparison": input_dir / "rtl_comparison_summary.json",
+    }
+
+    build_research_report(tmp_path / "report", input_paths=paths)
+
+    report = (tmp_path / "report" / "research_decision_report.md").read_text(encoding="utf-8")
+    assert "previous sim logs were ignored as stale" in report
+    assert "previous synth JSON files were ignored as stale" in report

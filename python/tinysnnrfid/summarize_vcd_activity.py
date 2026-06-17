@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from tinysnnrfid.rtl_status import design_output_was_written, load_status, stale_result, utc_now, write_status
+
 
 BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 
@@ -83,8 +85,17 @@ def parse_vcd_activity(path: str | Path, top_n: int = 10) -> dict[str, Any]:
 
 def collect_activity_summary(input_dir: str | Path = "results/rtl") -> dict[str, Any]:
     directory = Path(input_dir)
+    sim_status = load_status(directory, "sim")
     baselines = {
-        name: parse_vcd_activity(directory / f"vcd_{name}.vcd") for name in BASELINES
+        name: (
+            parse_vcd_activity(directory / f"vcd_{name}.vcd")
+            if design_output_was_written(sim_status, name, f"vcd_{name}.vcd")
+            else stale_result(
+                directory / f"vcd_{name}.vcd",
+                reason=_stale_reason(sim_status),
+            )
+        )
+        for name in BASELINES
     }
     toggle_counts = {
         name: values["total_toggles"]
@@ -94,6 +105,9 @@ def collect_activity_summary(input_dir: str | Path = "results/rtl") -> dict[str,
     lowest = min(toggle_counts, key=lambda name: (toggle_counts[name], name)) if toggle_counts else None
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": {
+            "simulation": sim_status or {"status": "missing", "note": "sim_status.json was not found."},
+        },
         "baselines": baselines,
         "recommendation_context": {
             "activity_vcd_available": bool(toggle_counts),
@@ -103,6 +117,21 @@ def collect_activity_summary(input_dir: str | Path = "results/rtl") -> dict[str,
             "Toggle counts are simulation activity proxies and are not measured silicon power or energy."
         ),
     }
+
+
+def _stale_reason(status: dict[str, Any] | None) -> str:
+    if not isinstance(status, dict):
+        return "Current-run simulation status file sim_status.json is missing; existing VCD artifacts are stale."
+    if status.get("status") == "skipped":
+        missing_tools = status.get("missing_tools", [])
+        tools = ", ".join(missing_tools) if isinstance(missing_tools, list) else ""
+        if not tools:
+            return "Current-run simulation was skipped because required tools were missing; existing VCD artifacts are stale."
+        verb = "was" if len(missing_tools) == 1 else "were"
+        return f"Current-run simulation was skipped because {tools} {verb} missing; existing VCD artifacts are stale."
+    if status.get("status") == "fail":
+        return "Current-run simulation failed and did not produce this VCD; existing VCD artifacts are stale."
+    return "Current-run simulation did not list this VCD output; existing VCD artifacts are stale."
 
 
 def render_activity_report(summary: dict[str, Any], input_dir: str | Path = "results/rtl") -> str:
@@ -118,6 +147,20 @@ def render_activity_report(summary: dict[str, Any], input_dir: str | Path = "res
     for name in BASELINES:
         values = summary["baselines"][name]
         lines.append(f"| `{directory / f'vcd_{name}.vcd'}` | {'yes' if values['found'] else 'no'} |")
+    sim = summary.get("status", {}).get("simulation", {})
+    if isinstance(sim, dict) and sim.get("status") != "pass":
+        lines.extend(
+            [
+                "",
+                "## Current-Run Status",
+                "",
+                "- "
+                + (
+                    sim.get("note")
+                    or "RTL simulation evidence is incomplete; previous VCD files were ignored as stale."
+                ),
+            ]
+        )
     lines.extend(["", "## Toggle Summary", "", "| Baseline | Status | Signals | Total Toggles |", "|---|---|---:|---:|"])
     for name, values in summary["baselines"].items():
         lines.append(
@@ -142,6 +185,7 @@ def summarize_vcd_activity(
     input_dir: str | Path = "results/rtl",
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
+    started_at = utc_now()
     input_directory = Path(input_dir)
     output_directory = Path(output_dir) if output_dir is not None else input_directory
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -150,6 +194,25 @@ def summarize_vcd_activity(
     report_path = output_directory / "rtl_activity_report.md"
     json_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     report_path.write_text(render_activity_report(summary, input_directory), encoding="utf-8")
+    sim = summary.get("status", {}).get("simulation", {})
+    status_value = "pass" if summary["recommendation_context"]["activity_vcd_available"] else "fail"
+    note = "RTL activity summary completed in the current run."
+    if isinstance(sim, dict) and sim.get("status") != "pass":
+        status_value = "skipped"
+        note = (
+            sim.get("note")
+            or "RTL activity was skipped because current simulation evidence was unavailable; stale VCDs were ignored."
+        )
+    write_status(
+        output_directory,
+        "activity",
+        started_at=started_at,
+        status=status_value,
+        missing_tools=sim.get("missing_tools", []) if isinstance(sim, dict) else [],
+        outputs_written=["rtl_activity_summary.json", "rtl_activity_report.md"],
+        return_codes={},
+        note=note,
+    )
     print(f"RTL activity summary written: {json_path}")
     print(f"RTL activity report written: {report_path}")
     return summary

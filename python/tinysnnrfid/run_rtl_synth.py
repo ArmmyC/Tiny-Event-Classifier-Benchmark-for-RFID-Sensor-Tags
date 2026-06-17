@@ -8,6 +8,8 @@ import subprocess
 import sys
 from typing import Callable
 
+from tinysnnrfid.rtl_status import utc_now, write_status
+
 
 DESIGNS: tuple[tuple[str, str, str], ...] = (
     ("threshold", "threshold_detector", "rtl/baselines/threshold_detector.sv"),
@@ -65,15 +67,32 @@ def run_rtl_synth(
     which: WhichFunc = shutil.which,
     run: RunFunc = subprocess.run,
 ) -> int:
+    started_at = utc_now()
     strict = strict_enabled(strict)
+    output_path = Path(output_dir)
     yosys = which("yosys")
     if yosys is None:
+        output_path.mkdir(parents=True, exist_ok=True)
+        write_status(
+            output_path,
+            "synth",
+            started_at=started_at,
+            status="skipped",
+            missing_tools=["yosys"],
+            outputs_written={},
+            return_codes={},
+            note=(
+                "RTL synthesis was skipped in the current run because yosys was missing. "
+                "Previous synthesis JSON and logs must be ignored as stale."
+            ),
+        )
         print("RTL synthesis skipped: yosys is required. Set STRICT=1 or pass --strict to fail.")
         return 1 if strict else 0
 
-    output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     status = 0
+    outputs_written: dict[str, list[str]] = {}
+    return_codes: dict[str, int] = {}
     env = yosys_environment(yosys)
     for name, top, source in DESIGNS:
         json_path = output_path / f"synth_{name}.json"
@@ -81,10 +100,28 @@ def run_rtl_synth(
         command = [yosys, "-q", "-p", _yosys_script(source, top, json_path, yosys)]
         completed = run(command, capture_output=True, text=True, check=False, env=env)
         output = _combined_output(completed)
+        return_codes[name] = completed.returncode
         log_path.write_text(output, encoding="utf-8")
+        outputs_written.setdefault(name, []).append(log_path.name)
+        if json_path.is_file():
+            outputs_written.setdefault(name, []).append(json_path.name)
         print(output, end="")
         if completed.returncode != 0:
             status = completed.returncode
+    write_status(
+        output_path,
+        "synth",
+        started_at=started_at,
+        status="pass" if status == 0 else "fail",
+        missing_tools=[],
+        outputs_written=outputs_written,
+        return_codes=return_codes,
+        note=(
+            "RTL synthesis completed in the current run."
+            if status == 0
+            else "RTL synthesis failed in the current run; only outputs listed here are current."
+        ),
+    )
     return status
 
 

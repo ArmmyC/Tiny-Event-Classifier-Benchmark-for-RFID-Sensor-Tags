@@ -44,26 +44,49 @@ def build_design_rows(
     rtl_summary: dict[str, Any] | None,
     activity_summary: dict[str, Any] | None,
 ) -> dict[str, dict[str, Any]]:
+    rtl_status = rtl_summary.get("status", {}) if isinstance(rtl_summary, dict) else {}
+    sim_current = _status_passed(rtl_status.get("simulation") if isinstance(rtl_status, dict) else None)
+    synth_current = _status_passed(rtl_status.get("synthesis") if isinstance(rtl_status, dict) else None)
+    activity_status = activity_summary.get("status", {}) if isinstance(activity_summary, dict) else {}
+    activity_current = _status_passed(
+        activity_status.get("simulation") if isinstance(activity_status, dict) else None
+    )
     simulations = rtl_summary.get("simulations", {}) if isinstance(rtl_summary, dict) else {}
     synthesis = rtl_summary.get("synthesis", {}) if isinstance(rtl_summary, dict) else {}
     activity = activity_summary.get("baselines", {}) if isinstance(activity_summary, dict) else {}
-    fsm_cells = synthesis.get(REFERENCE_DESIGN, {}).get("cell_count") if isinstance(synthesis, dict) else None
-    fsm_toggles = activity.get(REFERENCE_DESIGN, {}).get("total_toggles") if isinstance(activity, dict) else None
+    fsm_cells = (
+        synthesis.get(REFERENCE_DESIGN, {}).get("cell_count")
+        if synth_current and isinstance(synthesis, dict)
+        else None
+    )
+    fsm_toggles = (
+        activity.get(REFERENCE_DESIGN, {}).get("total_toggles")
+        if activity_current and isinstance(activity, dict)
+        else None
+    )
     rows: dict[str, dict[str, Any]] = {}
     for name in DESIGNS:
         sim_values = simulations.get(name, {}) if isinstance(simulations, dict) else {}
         synth_values = synthesis.get(name, {}) if isinstance(synthesis, dict) else {}
         activity_values = activity.get(name, {}) if isinstance(activity, dict) else {}
-        cell_count = synth_values.get("cell_count") if isinstance(synth_values, dict) else None
-        total_toggles = activity_values.get("total_toggles") if isinstance(activity_values, dict) else None
+        cell_count = synth_values.get("cell_count") if synth_current and isinstance(synth_values, dict) else None
+        total_toggles = (
+            activity_values.get("total_toggles") if activity_current and isinstance(activity_values, dict) else None
+        )
         rows[name] = {
-            "simulation_status": sim_values.get("status", "missing") if isinstance(sim_values, dict) else "missing",
+            "simulation_status": (
+                sim_values.get("status", "missing") if sim_current and isinstance(sim_values, dict) else "stale"
+            ),
             "cell_count": cell_count,
             "total_toggles": total_toggles,
             "cell_ratio_vs_fsm": _ratio(cell_count, fsm_cells),
             "toggle_ratio_vs_fsm": _ratio(total_toggles, fsm_toggles),
         }
     return rows
+
+
+def _status_passed(status: Any) -> bool:
+    return isinstance(status, dict) and status.get("status") == "pass"
 
 
 def choose_recommendation(
@@ -109,6 +132,10 @@ def build_comparison_summary(input_dir: str | Path = "results/rtl") -> dict[str,
         "inputs": {
             "rtl_summary": rtl_info,
             "rtl_activity_summary": activity_info,
+        },
+        "evidence_status": {
+            "rtl_summary": rtl_summary.get("status", {}) if isinstance(rtl_summary, dict) else {},
+            "rtl_activity_summary": activity_summary.get("status", {}) if isinstance(activity_summary, dict) else {},
         },
         "reference_design": REFERENCE_DESIGN,
         "candidate_design": CANDIDATE_DESIGN,
@@ -161,6 +188,7 @@ def render_comparison_report(summary: dict[str, Any]) -> str:
     ]
     for name, values in summary["inputs"].items():
         lines.append(f"| {name} | `{values['path']}` | {'yes' if values['found'] else 'no'} |")
+    _append_status_warnings(lines, summary.get("evidence_status", {}))
     lines.extend(["", "## Simulation Status", "", "| Design | Status |", "|---|---|"])
     for name, values in summary["designs"].items():
         lines.append(f"| {name} | {values['simulation_status']} |")
@@ -197,6 +225,25 @@ def render_comparison_report(summary: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _append_status_warnings(lines: list[str], statuses: dict[str, Any]) -> None:
+    messages: list[str] = []
+    rtl_status = statuses.get("rtl_summary", {}) if isinstance(statuses, dict) else {}
+    activity_status = statuses.get("rtl_activity_summary", {}) if isinstance(statuses, dict) else {}
+    for label, values in (
+        ("simulation", rtl_status.get("simulation", {}) if isinstance(rtl_status, dict) else {}),
+        ("synthesis", rtl_status.get("synthesis", {}) if isinstance(rtl_status, dict) else {}),
+        ("activity", activity_status.get("simulation", {}) if isinstance(activity_status, dict) else {}),
+    ):
+        if not isinstance(values, dict) or values.get("status") == "pass":
+            continue
+        note = values.get("note") or f"Current-run {label} evidence is incomplete; stale artifacts were ignored."
+        messages.append(note)
+    if messages:
+        lines.extend(["", "## Current-Run Status", ""])
+        for message in dict.fromkeys(messages):
+            lines.append(f"- {message}")
 
 
 def compare_rtl_designs(

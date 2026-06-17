@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 
 from tinysnnrfid.run_rtl_sim import DESIGNS as SIM_DESIGNS
@@ -22,11 +23,18 @@ def test_rtl_sim_skips_by_default_when_tools_are_missing(tmp_path, capsys) -> No
 
     assert result == 0
     assert "skipped" in capsys.readouterr().out.lower()
-    assert not list(tmp_path.iterdir())
+    status = json.loads((tmp_path / "sim_status.json").read_text(encoding="utf-8"))
+    assert status["step"] == "sim"
+    assert status["status"] == "skipped"
+    assert status["missing_tools"] == ["iverilog", "vvp"]
+    assert status["outputs_written"] == {}
+    assert "stale" in status["note"]
 
 
 def test_rtl_sim_strict_fails_when_tools_are_missing(tmp_path) -> None:
     assert run_rtl_sim(tmp_path, strict=True, which=_which_factory({})) == 1
+    status = json.loads((tmp_path / "sim_status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "skipped"
 
 
 def test_rtl_sim_respects_strict_environment(tmp_path, monkeypatch) -> None:
@@ -56,6 +64,9 @@ def test_rtl_sim_runs_all_designs_and_writes_logs(tmp_path) -> None:
         assert (tmp_path / f"sim_{name}.log").read_text(encoding="utf-8") == "5 passed, 0 failed\n"
         assert any(define in command for command in commands if command[0] == "/tools/iverilog")
         assert any(f"+VCD_FILE={tmp_path / f'vcd_{name}.vcd'}" in command for command in commands)
+    status = json.loads((tmp_path / "sim_status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "pass"
+    assert set(status["return_codes"]) == {name for name, _define in SIM_DESIGNS}
 
 
 def test_rtl_synth_skips_by_default_when_yosys_is_missing(tmp_path, capsys) -> None:
@@ -63,11 +74,18 @@ def test_rtl_synth_skips_by_default_when_yosys_is_missing(tmp_path, capsys) -> N
 
     assert result == 0
     assert "skipped" in capsys.readouterr().out.lower()
-    assert not list(tmp_path.iterdir())
+    status = json.loads((tmp_path / "synth_status.json").read_text(encoding="utf-8"))
+    assert status["step"] == "synth"
+    assert status["status"] == "skipped"
+    assert status["missing_tools"] == ["yosys"]
+    assert status["outputs_written"] == {}
+    assert "stale" in status["note"]
 
 
 def test_rtl_synth_strict_fails_when_yosys_is_missing(tmp_path) -> None:
     assert run_rtl_synth(tmp_path, strict=True, which=_which_factory({})) == 1
+    status = json.loads((tmp_path / "synth_status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "skipped"
 
 
 def test_rtl_synth_respects_strict_environment(tmp_path, monkeypatch) -> None:
@@ -95,6 +113,9 @@ def test_rtl_synth_runs_all_designs_and_writes_logs(tmp_path) -> None:
         assert command[:3] == ["/tools/yosys", "-q", "-p"]
         assert f"read_verilog -sv {source}" in command[-1]
         assert f"hierarchy -top {top}" in command[-1]
+    status = json.loads((tmp_path / "synth_status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "pass"
+    assert set(status["return_codes"]) == {name for name, _top, _source in SYNTH_DESIGNS}
 
 
 def test_yosys_environment_sets_datdir_for_oss_cad_suite_layout(tmp_path) -> None:

@@ -8,6 +8,8 @@ import re
 import sys
 from typing import Any
 
+from tinysnnrfid.rtl_status import design_output_was_written, load_status, stale_result
+
 
 BASELINES = ("threshold", "fsm", "lut_like", "tiny_snn_v2", "tiny_snn_v2_sparse_activity")
 SIMULATION_SUMMARY = re.compile(
@@ -81,25 +83,52 @@ def parse_synthesis_json(path: str | Path) -> dict[str, Any]:
 
 def collect_rtl_summary(input_dir: str | Path = "results/rtl") -> dict[str, Any]:
     directory = Path(input_dir)
+    sim_status = load_status(directory, "sim")
+    synth_status = load_status(directory, "synth")
     simulations = {
-        name: parse_simulation_log(directory / f"sim_{name}.log") for name in BASELINES
+        name: (
+            parse_simulation_log(directory / f"sim_{name}.log")
+            if design_output_was_written(sim_status, name, f"sim_{name}.log")
+            else stale_result(
+                directory / f"sim_{name}.log",
+                reason=_stale_reason("simulation", sim_status, "sim_status.json"),
+            )
+        )
+        for name in BASELINES
     }
     synthesis = {
-        name: parse_synthesis_json(directory / f"synth_{name}.json") for name in BASELINES
+        name: (
+            parse_synthesis_json(directory / f"synth_{name}.json")
+            if design_output_was_written(synth_status, name, f"synth_{name}.json")
+            else stale_result(
+                directory / f"synth_{name}.json",
+                reason=_stale_reason("synthesis", synth_status, "synth_status.json"),
+            )
+        )
+        for name in BASELINES
     }
     cell_counts = {
         name: values["cell_count"]
         for name, values in synthesis.items()
         if isinstance(values.get("cell_count"), int)
     }
-    available_simulations = [values for values in simulations.values() if values["found"]]
+    available_simulations = [
+        values for values in simulations.values() if values["found"] and values["status"] != "stale"
+    ]
     lowest = min(cell_counts, key=lambda name: (cell_counts[name], name)) if cell_counts else None
     summary: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": {
+            "simulation": sim_status or {"status": "missing", "note": "sim_status.json was not found."},
+            "synthesis": synth_status or {"status": "missing", "note": "synth_status.json was not found."},
+        },
         "simulations": simulations,
         "synthesis": synthesis,
         "recommendation_context": {
-            "baseline_rtl_available": bool(available_simulations or any(v["found"] for v in synthesis.values())),
+            "baseline_rtl_available": bool(
+                available_simulations
+                or any(v["found"] and v["status"] != "stale" for v in synthesis.values())
+            ),
             "all_available_sims_pass": bool(available_simulations)
             and all(values["status"] == "pass" for values in available_simulations),
             "lowest_cell_count_baseline": lowest,
@@ -120,6 +149,21 @@ def collect_rtl_summary(input_dir: str | Path = "results/rtl") -> dict[str, Any]
     return summary
 
 
+def _stale_reason(kind: str, status: dict[str, Any] | None, status_file: str) -> str:
+    if not isinstance(status, dict):
+        return f"Current-run {kind} status file {status_file} is missing; existing artifacts are stale."
+    if status.get("status") == "skipped":
+        missing_tools = status.get("missing_tools", [])
+        tools = ", ".join(missing_tools) if isinstance(missing_tools, list) else ""
+        if not tools:
+            return f"Current-run {kind} was skipped because required tools were missing; existing artifacts are stale."
+        verb = "was" if len(missing_tools) == 1 else "were"
+        return f"Current-run {kind} was skipped because {tools} {verb} missing; existing artifacts are stale."
+    if status.get("status") == "fail":
+        return f"Current-run {kind} failed and did not produce this design output; existing artifacts are stale."
+    return f"Current-run {kind} did not list this design output; existing artifacts are stale."
+
+
 def render_rtl_report(summary: dict[str, Any], input_dir: str | Path = "results/rtl") -> str:
     directory = Path(input_dir)
     lines = [
@@ -133,6 +177,7 @@ def render_rtl_report(summary: dict[str, Any], input_dir: str | Path = "results/
     for name in BASELINES:
         lines.append(f"| `{directory / f'sim_{name}.log'}` | {'yes' if summary['simulations'][name]['found'] else 'no'} |")
         lines.append(f"| `{directory / f'synth_{name}.json'}` | {'yes' if summary['synthesis'][name]['found'] else 'no'} |")
+    _append_status_warnings(lines, summary.get("status", {}))
     lines.extend(["", "## Simulation Summary", "", "| Baseline | Status | Passed | Failed |", "|---|---|---:|---:|"])
     for name, values in summary["simulations"].items():
         lines.append(f"| {name} | {values['status']} | {values.get('passed', '-')} | {values.get('failed', '-')} |")
@@ -152,6 +197,26 @@ def render_rtl_report(summary: dict[str, Any], input_dir: str | Path = "results/
         _append_activity_section(lines, summary["activity"])
     lines.extend(["", "## Notes and Limitations", "", summary["note"], ""])
     return "\n".join(lines)
+
+
+def _append_status_warnings(lines: list[str], statuses: dict[str, Any]) -> None:
+    messages: list[str] = []
+    sim = statuses.get("simulation", {}) if isinstance(statuses, dict) else {}
+    synth = statuses.get("synthesis", {}) if isinstance(statuses, dict) else {}
+    if isinstance(sim, dict) and sim.get("status") != "pass":
+        messages.append(
+            sim.get("note")
+            or "RTL simulation evidence is incomplete; previous simulation logs were ignored as stale."
+        )
+    if isinstance(synth, dict) and synth.get("status") != "pass":
+        messages.append(
+            synth.get("note")
+            or "RTL synthesis evidence is incomplete; previous synthesis files were ignored as stale."
+        )
+    if messages:
+        lines.extend(["", "## Current-Run Status", ""])
+        for message in messages:
+            lines.append(f"- {message}")
 
 
 def _append_activity_section(lines: list[str], activity: dict[str, Any]) -> None:

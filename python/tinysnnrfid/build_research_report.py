@@ -75,6 +75,7 @@ def extract_rtl_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "simulations": payload.get("simulations", {}),
         "synthesis": payload.get("synthesis", {}),
         "activity": payload.get("activity", {}),
+        "status": payload.get("status", {}),
         "recommendation_context": payload.get("recommendation_context", {}),
         "note": payload.get("note"),
     }
@@ -89,6 +90,7 @@ def extract_rtl_comparison_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         "candidate_design": payload.get("candidate_design"),
         "legacy_snn_design": payload.get("legacy_snn_design"),
         "designs": payload.get("designs", {}),
+        "evidence_status": payload.get("evidence_status", {}),
         "tiny_snn_v2_context": payload.get("tiny_snn_v2_context", {}),
         "tiny_snn_v2_sparse_activity_context": payload.get("tiny_snn_v2_sparse_activity_context", {}),
         "note": payload.get("note"),
@@ -408,6 +410,7 @@ def _append_rtl_evidence_section(lines: list[str], item: dict[str, Any] | None) 
     if not item:
         lines.extend(["- RTL summary not available. Run `make rtl-report` to summarize optional local tool outputs.", ""])
         return
+    _append_rtl_status_notes(lines, item.get("status", {}))
     simulations = item.get("simulations", {})
     synthesis = item.get("synthesis", {})
     lines.extend(["| Baseline | Simulation | Cell Count Proxy |", "|---|---|---:|"])
@@ -446,6 +449,7 @@ def _append_rtl_comparison_section(lines: list[str], item: dict[str, Any] | None
     if not item:
         lines.extend(["- RTL comparison summary not available. Run `make rtl-compare` after generating RTL summaries.", ""])
         return
+    _append_rtl_status_notes(lines, item.get("evidence_status", {}))
     context = item.get("tiny_snn_v2_context", {})
     sparse_context = item.get("tiny_snn_v2_sparse_activity_context", {})
     lines.append(f"- Recommendation: `{item.get('recommendation') or 'unknown'}`.")
@@ -479,6 +483,35 @@ def _format_optional(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3f}"
     return str(value)
+
+
+def _append_rtl_status_notes(lines: list[str], statuses: Any) -> None:
+    if not isinstance(statuses, dict):
+        return
+    messages: list[str] = []
+    nested = []
+    if "rtl_summary" in statuses or "rtl_activity_summary" in statuses:
+        rtl_status = statuses.get("rtl_summary", {})
+        activity_status = statuses.get("rtl_activity_summary", {})
+        if isinstance(rtl_status, dict):
+            nested.extend([rtl_status.get("simulation"), rtl_status.get("synthesis")])
+        if isinstance(activity_status, dict):
+            nested.append(activity_status.get("simulation"))
+    else:
+        nested.extend([statuses.get("simulation"), statuses.get("synthesis")])
+        activity = statuses.get("activity")
+        if isinstance(activity, dict):
+            nested.append(activity)
+    for values in nested:
+        if isinstance(values, dict) and values.get("status") != "pass":
+            messages.append(
+                values.get("note")
+                or "Current-run RTL evidence is incomplete; stale artifacts were ignored."
+            )
+    for message in dict.fromkeys(messages):
+        lines.append(f"- {message}")
+    if messages:
+        lines.append("")
 
 
 def build_parser() -> argparse.ArgumentParser:
